@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <VersionPrefix>2.0.0.8</VersionPrefix>
-    <TargetFramework>net8.0</TargetFramework>
+    <VersionPrefix>2.0.0.9</VersionPrefix>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -29,6 +29,7 @@
     </PackageReference>
     <PackageReference Include="MessageBox.Avalonia" />
     <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="System.Reactive" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,6 +4,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Common;
 using NSW.Core.Enums;
 using System;
 

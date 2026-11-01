@@ -1,10 +1,10 @@
-﻿using LibHac.Common.FixedArrays;
+﻿using Common;
+using LibHac.Common.FixedArrays;
 using LibHac.Common.Keys;
 using LibHac.Fs;
 using LibHac.FsSystem;
 using LibHac.Tools.FsSystem;
 using LibHac.Tools.FsSystem.NcaUtils;
-using NSW.Utils;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -18,6 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ZstdSharp;
 using ZstdSharp.Unsafe;
+using Blake3;
 
 namespace LibHac.NSZ;
 
@@ -30,20 +31,38 @@ public class NcaToNczConverter(KeySet keySet)
     private const string StreamingSectionMagic = "NCZSECTN";
     private const string BlockSectionMagic = "NCZBLOCK";
 
-    private byte[]? _originalHash;
+    private byte[] _originalHash;
 
     private static readonly ArrayPool<byte> _chunkPool = ArrayPool<byte>.Shared;
 
-    public async Task ConvertAsync(MemoryStream headerStream, IStorage originalStorage, Stream outputStream, bool useBlockMode, int compressionLevel = 18, Action<long>? onRead = null, CancellationToken ct = default)
+    public async Task ConvertAsync(MemoryStream headerStream, IStorage originalStorage, Stream outputStream, bool useBlockMode, int compressionLevel, Action<long> onRead = null, CancellationToken ct = default)
     {
+        var nca = new Nca(keySet, originalStorage);
+
+        bool hasSparse = false;
+        for (int i = 0; i < 4; i++)
+        {
+            if (!nca.SectionExists(i)) continue;
+            if (nca.GetFsHeader(i).ExistsSparseLayer())
+            {
+                hasSparse = true;
+                break;
+            }
+        }
+
+        if (hasSparse)
+        {
+            await global::Common.Utils.CopyStreamAsync(originalStorage.AsStream(), outputStream, onRead, ct);
+            return;
+        }
+
         if (useBlockMode)
             await ConvertBlockAsync(headerStream, originalStorage, outputStream, compressionLevel, onRead, ct);
         else
             await ConvertBlocklessAsync(headerStream, originalStorage, outputStream, compressionLevel, onRead, ct);
     }
 
-
-    private async Task ConvertBlocklessAsync(MemoryStream headerStream, IStorage originalStorage, Stream outputStream, int compressionLevel = 18, Action<long>? onRead = null, CancellationToken ct = default)
+    private async Task ConvertBlocklessAsync(MemoryStream headerStream, IStorage originalStorage, Stream outputStream, int compressionLevel, Action<long> onRead = null, CancellationToken ct = default)
     {
         _originalHash = null;
 
@@ -68,9 +87,10 @@ public class NcaToNczConverter(KeySet keySet)
 
         using IStorage decryptedStorage = nca.OpenDecryptedNca();
         decryptedStorage.GetSize(out long ncaSize).ThrowIfFailure();
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
 
-        int threadCount = Environment.ProcessorCount;
+        using var hasher = Hasher.New();
+
+        int threadCount = Math.Min(Environment.ProcessorCount, 8);
 
         var compressorStack = new ConcurrentStack<Compressor>();
         for (int i = 0; i < threadCount; i++)
@@ -81,21 +101,16 @@ public class NcaToNczConverter(KeySet keySet)
             compressorStack.Push(c);
         }
 
-        var results = new ConcurrentDictionary<int, byte[]>();
-        int chunkIndex = 0;
-        int writeIndex = 0;
+        var writeQueue = new Queue<Task<(byte[] data, int plainSize, byte[] rentedBuf)>>();
         long readPos = HeaderSize;
-        var tasks = new List<Task>();
 
         using var semaphore = new SemaphoreSlim(threadCount);
-        using var writeLock = new SemaphoreSlim(1, 1);
 
         try
         {
             while (readPos < ncaSize)
             {
                 ct.ThrowIfCancellationRequested();
-
                 await semaphore.WaitAsync(ct);
 
                 int toRead = (int)Math.Min(ChunkSize, ncaSize - readPos);
@@ -104,64 +119,72 @@ public class NcaToNczConverter(KeySet keySet)
                 var readRes = decryptedStorage.Read(readPos, rentedBuf.AsSpan(0, toRead));
                 if (readRes != Result.Success) throw new Exception("NCA Read Failed");
 
-                sha256.TransformBlock(rentedBuf, 0, toRead, null, 0);
+                hasher.Update(rentedBuf.AsSpan(0, toRead));
 
-                int index = chunkIndex++;
+                onRead?.Invoke(toRead / 2);
+
                 int currentReadSize = toRead;
-                long currentReadPos = readPos;
-
-                tasks.Add(Task.Run(async () =>
+                var task = Task.Run(() =>
                 {
                     try
                     {
-                        if (ct.IsCancellationRequested) return;
-
                         if (compressorStack.TryPop(out var compressor))
                         {
                             try
                             {
-                                results[index] = compressor.Wrap(new ReadOnlySpan<byte>(rentedBuf, 0, currentReadSize)).ToArray();
+                                byte[] compressed = compressor.Wrap(new ReadOnlySpan<byte>(rentedBuf, 0, currentReadSize)).ToArray();
+                                return (data: compressed, plainSize: currentReadSize, rentedBuf);
                             }
                             finally
                             {
                                 compressorStack.Push(compressor);
-                                _chunkPool.Return(rentedBuf);
                             }
                         }
-
-                        await writeLock.WaitAsync(ct);
-                        try
-                        {
-                            while (results.TryRemove(writeIndex, out var data))
-                            {
-                                await outputStream.WriteAsync(data, ct);
-                                writeIndex++;
-                            }
-                        }
-                        finally { writeLock.Release(); }
-
-                        onRead?.Invoke((long)currentReadSize);
+                        throw new Exception("Compressor 획득 실패");
                     }
-                    finally
+                    catch
                     {
+                        _chunkPool.Return(rentedBuf);
                         semaphore.Release();
+                        throw;
                     }
-                }, ct));
+                }, ct);
 
+                writeQueue.Enqueue(task);
                 readPos += toRead;
+
+                if (writeQueue.Count >= threadCount)
+                    await FlushNextAsync();
             }
 
-            await Task.WhenAll(tasks);
+            while (writeQueue.Count > 0)
+                await FlushNextAsync();
         }
         finally
         {
             foreach (var c in compressorStack) c.Dispose();
-            sha256.TransformFinalBlock([], 0, 0);
-            _originalHash = sha256.Hash;
+            _originalHash = hasher.Finalize().AsSpan().ToArray();
+        }
+
+        async Task FlushNextAsync()
+        {
+            var task = writeQueue.Dequeue();
+            var (data, plainSize, rentedBuf) = await task;
+
+            try
+            {
+                await outputStream.WriteAsync(data, ct);
+                onRead?.Invoke(plainSize - (plainSize / 2));
+            }
+            finally
+            {
+                _chunkPool.Return(rentedBuf);
+                semaphore.Release();
+            }
         }
     }
 
-    private async Task ConvertBlockAsync(MemoryStream headerStream, IStorage originalStorage, Stream outputStream, int compressionLevel = 18, Action<long>? onRead = null, CancellationToken ct = default)
+    private async Task ConvertBlockAsync(MemoryStream headerStream, IStorage originalStorage, Stream outputStream, int compressionLevel, Action<long> onRead = null, CancellationToken ct = default)
     {
         _originalHash = null;
 
@@ -192,7 +215,6 @@ public class NcaToNczConverter(KeySet keySet)
         WriteSectionTable(outputStream, sections, StreamingSectionMagic);
 
         using IStorage decryptedStorage = nca.OpenDecryptedNca();
-
         decryptedStorage.GetSize(out long ncaSize).ThrowIfFailure();
 
         long dataLength = ncaSize - HeaderSize;
@@ -205,68 +227,80 @@ public class NcaToNczConverter(KeySet keySet)
 
         outputStream.Write(new byte[blockHeaderSize]);
 
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        using var hasher = Hasher.New();
         var compressedSizes = new int[blockCount];
-        const int MaxConcurrentBlocks = 16;
-        var semaphore = new SemaphoreSlim(MaxConcurrentBlocks);
+
+        int maxConcurrentBlocks = Math.Min(Environment.ProcessorCount, 8);
+        var semaphore = new SemaphoreSlim(maxConcurrentBlocks);
         var pool = ArrayPool<byte>.Shared;
         var writeQueue = new Queue<Task<(byte[] data, int plainSize, byte[] rawBuffer)>>();
         int writeIndex = 0;
 
-        for (int b = 0; b < blockCount; b++)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            await semaphore.WaitAsync(ct);
-
-            long readPos = HeaderSize + (long)b * blockSize;
-            int toRead = (int)Math.Min(blockSize, ncaSize - readPos);
-            byte[] buffer = pool.Rent(toRead);
-
-            decryptedStorage.Read(readPos, buffer.AsSpan(0, toRead)).ThrowIfFailure();
-            sha256.TransformBlock(buffer, 0, toRead, null, 0);
-            onRead?.Invoke(toRead / 2);
-
-            int capturedB = b;
-            var compressTask = Task.Run(() =>
+            for (int b = 0; b < blockCount; b++)
             {
-                try
+                ct.ThrowIfCancellationRequested();
+                await semaphore.WaitAsync(ct);
+
+                long readPos = HeaderSize + (long)b * blockSize;
+                int toRead = (int)Math.Min(blockSize, ncaSize - readPos);
+                byte[] buffer = pool.Rent(toRead);
+
+                decryptedStorage.Read(readPos, buffer.AsSpan(0, toRead)).ThrowIfFailure();
+
+                hasher.Update(buffer.AsSpan(0, toRead));
+
+                onRead?.Invoke(toRead / 2);
+
+                var compressTask = Task.Run(() =>
                 {
-                    ct.ThrowIfCancellationRequested();
-
-                    using var compressor = new Compressor(compressionLevel);
-                    byte[] compressedBuffer = GC.AllocateUninitializedArray<byte>(Compressor.GetCompressBound(toRead));
-                    int compressedSize = compressor.Wrap(new ReadOnlySpan<byte>(buffer, 0, toRead), new Span<byte>(compressedBuffer));
-
-                    if (compressedSize < toRead)
+                    try
                     {
-                        byte[] finalData = GC.AllocateUninitializedArray<byte>(compressedSize);
-                        Unsafe.CopyBlock(ref finalData[0], ref compressedBuffer[0], (uint)compressedSize);
+                        ct.ThrowIfCancellationRequested();
 
-                        return (data: finalData, plainSize: toRead, rawBuffer: buffer);
+                        using var compressor = new Compressor(compressionLevel);
+                        byte[] compressedBuffer = GC.AllocateUninitializedArray<byte>(Compressor.GetCompressBound(toRead));
+                        int compressedSize = compressor.Wrap(new ReadOnlySpan<byte>(buffer, 0, toRead), new Span<byte>(compressedBuffer));
+
+                        if (compressedSize < toRead)
+                        {
+                            byte[] finalData = GC.AllocateUninitializedArray<byte>(compressedSize);
+                            Unsafe.CopyBlock(ref finalData[0], ref compressedBuffer[0], (uint)compressedSize);
+                            return (data: finalData, plainSize: toRead, rawBuffer: buffer);
+                        }
+                        else
+                        {
+                            byte[] rawCopy = GC.AllocateUninitializedArray<byte>(toRead);
+                            Unsafe.CopyBlock(ref rawCopy[0], ref buffer[0], (uint)toRead);
+                            return (data: rawCopy, plainSize: toRead, rawBuffer: buffer);
+                        }
                     }
-                    else
+                    catch
                     {
-                        byte[] rawCopy = GC.AllocateUninitializedArray<byte>(toRead);
-                        Unsafe.CopyBlock(ref rawCopy[0], ref buffer[0], (uint)toRead);
-
-                        return (data: rawCopy, plainSize: toRead, rawBuffer: buffer);
+                        pool.Return(buffer);
+                        semaphore.Release();
+                        throw;
                     }
-                }
-                catch
-                {
-                    pool.Return(buffer);
-                    semaphore.Release();
-                    throw;
-                }
-            }, ct);
+                }, ct);
 
-            writeQueue.Enqueue(compressTask);
+                writeQueue.Enqueue(compressTask);
 
-            if (writeQueue.Count >= MaxConcurrentBlocks)
+                if (writeQueue.Count >= maxConcurrentBlocks)
+                    await FlushNext();
+            }
+
+            while (writeQueue.Count > 0)
                 await FlushNext();
         }
+        finally
+        {
+            _originalHash = hasher.Finalize().AsSpan().ToArray();
+        }
 
-        while (writeQueue.Count > 0) await FlushNext();
+        outputStream.Position = blockHeaderPos;
+        WriteBlockHeader(outputStream, blockSizeExponent, blockCount, compressedSizes, dataLength);
+        outputStream.Position = outputStream.Length;
 
         async Task FlushNext()
         {
@@ -276,7 +310,8 @@ public class NcaToNczConverter(KeySet keySet)
             {
                 compressedSizes[writeIndex++] = data.Length;
                 await outputStream.WriteAsync(data, ct);
-                onRead?.Invoke(plainSize / 2);
+
+                onRead?.Invoke(plainSize - (plainSize / 2));
             }
             finally
             {
@@ -284,26 +319,19 @@ public class NcaToNczConverter(KeySet keySet)
                 semaphore.Release();
             }
         }
-
-        sha256.TransformFinalBlock([], 0, 0);
-        _originalHash = sha256.Hash;
-
-        outputStream.Position = blockHeaderPos;
-        WriteBlockHeader(outputStream, blockSizeExponent, blockCount, compressedSizes, dataLength);
-        outputStream.Position = outputStream.Length;
     }
 
-    public async Task ValidateAsync(Stream nczStream, string titleId, long totalVerifySize, string label, IProgress<ProgressInfo>? progress, CancellationToken ct)
+    public async Task ValidateAsync(Stream nczStream, string titleId, long totalVerifySize, string label, IProgress<ProgressInfo> progress, CancellationToken ct)
     {
         if (_originalHash == null)
-            throw new InvalidOperationException("Convert must be called first.");
+            return;
 
         nczStream.Position = 0;
         var ncz = new Ncz(keySet, nczStream, NczReadMode.Original);
         using IStorage decrypted = ncz.OpenDecryptedNca();
         decrypted.GetSize(out long decSize).ThrowIfFailure();
 
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        using var hasher = Hasher.New();
         var reportSw = Stopwatch.StartNew();
         var startTime = Stopwatch.GetTimestamp();
         double freq = Stopwatch.Frequency;
@@ -335,7 +363,7 @@ public class NcaToNczConverter(KeySet keySet)
 
         await foreach (var data in channel.Reader.ReadAllAsync(ct))
         {
-            sha256.TransformBlock(data, 0, data.Length, null, 0);
+            hasher.Update(data.AsSpan());
 
             currentVerifyPos += data.Length;
 
@@ -356,7 +384,7 @@ public class NcaToNczConverter(KeySet keySet)
                     ? (int)Math.Min(100, currentVerifyPos * 100 / totalVerifySize)
                     : 0;
 
-                var r = NSW.Utils.Common.CalculateProgress(currentVerifyPos, totalVerifySize, label);
+                var r = global::Common.Utils.CalculateProgress(currentVerifyPos, totalVerifySize, label);
                 progress?.Report(new ProgressInfo(
                     pct,
                     $"Decompressing and hashing... {r.label}",
@@ -371,16 +399,14 @@ public class NcaToNczConverter(KeySet keySet)
 
         await readTask;
 
-        sha256.TransformFinalBlock([], 0, 0);
-
-        if (!sha256.Hash.SequenceEqual(_originalHash))
+        if (!hasher.Finalize().AsSpan().SequenceEqual(_originalHash))
             throw new InvalidDataException($"{label} verification failed: hash mismatch");
     }
 
     private static void WriteBlockHeader(Stream output, int blockSizeExponent, int blockCount, int[] compressedSizes, long decompressedSize)
     {
         output.WriteByte(2);
-        output.WriteByte(2);
+        output.WriteByte(1);
         output.WriteByte(0);
         output.WriteByte((byte)blockSizeExponent);
         output.Write(BitConverter.GetBytes(blockCount));
@@ -415,6 +441,8 @@ public class NcaToNczConverter(KeySet keySet)
             if (!nca.SectionExists(i)) continue;
 
             var fsHeader = nca.GetFsHeader(i);
+            var patchInfo = fsHeader.GetPatchInfo();
+
             long sectionOffset = nca.Header.GetSectionStartOffset(i);
             long sectionSize = nca.Header.GetSectionSize(i);
 
@@ -424,6 +452,7 @@ public class NcaToNczConverter(KeySet keySet)
                 if (extStorage == null) continue;
 
                 extStorage.ReadAllEntries(out var entries).ThrowIfFailure();
+                extStorage.GetSize(out long extSize).ThrowIfFailure();
                 byte[] key = extStorage.GetKey().ToArray();
                 uint secureValue = extStorage.GetSecureValue();
 
@@ -433,7 +462,7 @@ public class NcaToNczConverter(KeySet keySet)
                     long entryOffset = sectionOffset + entry.GetOffset();
                     long entryEnd = e + 1 < entries.Length
                         ? sectionOffset + entries[e + 1].GetOffset()
-                        : sectionOffset + sectionSize;
+                        : sectionOffset + extSize;
 
                     var section = new NczSectionRaw
                     {
@@ -456,6 +485,20 @@ public class NcaToNczConverter(KeySet keySet)
                         counter[..].CopyTo(section.CryptoCounter.AsSpan());
                     }
                     result.Add(section);
+                }
+                long lastSectionEnd = sectionOffset + extSize;
+                long bktrEnd = sectionOffset + sectionSize;
+                if (bktrEnd > lastSectionEnd)
+                {
+                    byte[] bktrCounter = Aes128CtrStorage.CreateCounter(fsHeader.Counter, 0);
+                    result.Add(new NczSectionRaw
+                    {
+                        Offset = lastSectionEnd,
+                        Size = bktrEnd - lastSectionEnd,
+                        CryptoType = (long)NcaEncryptionType.AesCtr,
+                        CryptoKey = [.. key],
+                        CryptoCounter = bktrCounter
+                    });
                 }
                 continue;
             }

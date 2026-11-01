@@ -84,7 +84,7 @@ public class PartitionFileSystemCore<TMetaData, TFormat, THeader, TEntry> : IFil
     private static ReadOnlySpan<byte> RootPath => "/"u8;
 
     private IStorage _baseStorage;
-    private TMetaData _metaData;
+    protected TMetaData _metaData;
     private bool _isInitialized;
     private long _metaDataSize;
     private UniqueRef<TMetaData> _uniqueMetaData;

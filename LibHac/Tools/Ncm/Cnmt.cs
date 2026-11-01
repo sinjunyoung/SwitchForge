@@ -101,6 +101,7 @@ public class CnmtContentEntry
     public byte[] NcaId { get; set; }
     public long Size { get; set; }
     public ContentType Type { get; set; }
+    public byte IdOffset { get; set; }
 
     public CnmtContentEntry() { }
 
@@ -111,7 +112,7 @@ public class CnmtContentEntry
         Size = reader.ReadUInt32();
         Size |= (long)reader.ReadUInt16() << 32;
         Type = (ContentType)reader.ReadByte();
-        reader.BaseStream.Position += 1;
+        IdOffset = reader.ReadByte();
     }
 }
 

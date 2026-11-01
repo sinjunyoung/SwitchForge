@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <VersionPrefix>0.21.1</VersionPrefix>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
@@ -19,12 +19,11 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
 
     <PathMap Condition=" '$(BuildType)' == 'Release' and '$(HasGitDir)' == 'false' ">$(MSBuildProjectDirectory)=C:/LibHac/</PathMap>
     <DeterministicSourcePaths Condition=" '$(BuildType)' == 'Release' and '$(HasGitDir)' == 'true' ">true</DeterministicSourcePaths>
 
-    <NoWarn>$(NoWarn);1591;CS8632;CA1816</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -42,15 +41,15 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <!-- Packages that are only used when building -->
   <ItemGroup>
-    <PackageReference Include="JetBrains.Annotations" ExcludeAssets="runtime" PrivateAssets="all">
-      <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Blake3" />
+    <PackageReference Include="JetBrains.Annotations" />
     <PackageReference Include="ZstdSharp.Port" />
   </ItemGroup>
+
+  <!-- Packages that are only used when building -->
   <ItemGroup>
-    <ProjectReference Include="..\NSW.Utils\NSW.Utils.csproj" />
+    <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
 </Project>

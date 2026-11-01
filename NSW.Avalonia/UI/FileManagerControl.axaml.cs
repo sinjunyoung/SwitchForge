@@ -146,7 +146,7 @@ public partial class FileManagerControl : UserControl, INotifyPropertyChanged
 
         try
         {
-            ViewModel.SelectedGame.CoverBitmap.Save(tempPath);
+            ViewModel.SelectedGame.CoverBitmap.Save(tempPath, PngBitmapEncoderOptions.Default);
 
             var data = new DataTransfer();
 

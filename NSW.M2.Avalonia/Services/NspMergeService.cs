@@ -1,4 +1,4 @@
-﻿using DynamicData;
+﻿using Common;
 using LibHac.Common;
 using LibHac.Common.Keys;
 using LibHac.Fs;
@@ -12,7 +12,6 @@ using LibHac.Tools.FsSystem.NcaUtils;
 using NSW.Avalonia.Models;
 using NSW.Avalonia.Services;
 using NSW.Core;
-using NSW.Core.Enums;
 using NSW.Core.Models;
 using NSW.Utils;
 using System;
@@ -214,7 +213,7 @@ public static class NspMergeService
 
                     var capturedStorage = currentStorage;
 
-                    fileEntries.Add((kvp.Key, async (s, onRead) => await Common.CopyStreamAsync(capturedStorage.AsStream(), s, onRead, ct), size, kvp.Key));
+                    fileEntries.Add((kvp.Key, async (s, onRead) => await Common.Utils.CopyStreamAsync(capturedStorage.AsStream(), s, onRead, ct), size, kvp.Key));
 
                     continue;
                 }
@@ -295,7 +294,7 @@ public static class NspMergeService
 
             string finalFileName = NspNameBuilder.FileNameBuild("Merged", meta.KrTitle, meta.EnTitle, meta.TitleId, meta.DisplayVersion, meta.TitleVersion, meta.DlcCount, hasBase, hasUpdate, req.UseCompression);
             finalPath = Path.Combine(req.OutputDir, finalFileName);
-            finalPath = Common.GetUniqueFilePath(finalPath);
+            finalPath = Common.Utils.GetUniqueFilePath(finalPath);
 
             while (allPaths.Any(p => string.Equals(p, finalPath, StringComparison.OrdinalIgnoreCase)) || File.Exists(finalPath))
             {

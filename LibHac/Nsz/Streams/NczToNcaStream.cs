@@ -119,6 +119,7 @@ public class NczToNcaStream(byte[] headerBytes, Stream decompressionStream, long
         if (!IsPositionAllowed(newPosition, out var message))
             throw new IOException($"Seek operation leads to an invalid position: {message}");
 
+        _actualNcaPosition = newPosition;
         return _actualNcaPosition;
     }
 
@@ -141,7 +142,7 @@ public class NczToNcaStream(byte[] headerBytes, Stream decompressionStream, long
             return false;
         }
 
-        if (position >= Length)
+        if (position > Length)
         {
             message = $"Position can't be greater or equal to stream length.";
             return false;

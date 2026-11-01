@@ -79,4 +79,20 @@ public class XciPartition : Sha256PartitionFileSystem
     {
         Initialize(storage).ThrowIfFailure();
     }
+
+    public (long AbsOffset, long Size, byte[] Hash, uint HashTargetSize) GetEntryInfo(string name)
+    {
+        GetFileBaseOffset(out long absOffset, $"/{name}".ToU8Span()).ThrowIfFailure();
+        absOffset += Offset;
+
+        int entryIndex = _metaData.GetEntryIndex(name.ToU8Span());
+        ref readonly var entry = ref _metaData.GetEntry(entryIndex);
+
+        return (
+            absOffset,
+            entry.Size,
+            entry.Hash.AsSpan().ToArray(),
+            (uint)entry.HashTargetSize
+        );
+    }
 }

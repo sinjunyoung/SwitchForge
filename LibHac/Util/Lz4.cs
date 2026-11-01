@@ -1,11 +1,17 @@
 // https://github.com/Ryujinx/Ryujinx/blob/0254a84f90ea03037be15b8fd1f9e0a4be5577e9/Ryujinx.HLE/Loaders/Compression/Lz4.cs
 
 using System;
+using System.Collections.Generic;
 
 namespace LibHac.Util;
 
 public static class Lz4
 {
+    private const int MinMatch = 4;
+    private const int LastLiterals = 5;
+    private const int HashLog = 16;
+    private const int HashSize = 1 << HashLog;
+
     public static byte[] Decompress(byte[] cmp, int decLength)
     {
         byte[] dec = new byte[decLength];

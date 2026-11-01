@@ -80,7 +80,7 @@
 							 Padding="10,0"
 							 Text="{Binding OutputPath, Mode=TwoWay}"
 							 Height="36"
-							 Watermark="{x:Static l:Resources.Hint_SelectOutput}"/>
+							 PlaceholderText="{x:Static l:Resources.Hint_SelectOutput}"/>
 				</Border>
 
 				<Button Grid.Column="3" x:Name="btnBrowseOutput"

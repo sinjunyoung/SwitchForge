@@ -1,9 +1,14 @@
-﻿namespace NSW.Core.Enums;
+﻿namespace Common;
 
 public enum LogLevel 
 { 
     Info,
+
     Highlight,
-    Ok, 
+
+    Ok,
+
+    Warning,
+
     Error
 }

@@ -3,7 +3,7 @@ using ReactiveUI;
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reactive;
+using ReactiveUI.Primitives;
 
 namespace NSW.M2.Avalonia.ViewModels;
 
@@ -33,7 +33,7 @@ public class MainViewModel: NSW.Avalonia.ViewModels.MainViewModelBase
         set => this.RaiseAndSetIfChanged(ref _outputPath, value);
     }
 
-    public ReactiveCommand<Unit, Unit> OpenWorkSpaceCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> OpenWorkSpaceCommand { get; }
 
     #endregion
 

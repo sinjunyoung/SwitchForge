@@ -22,7 +22,7 @@ public static class NcaRecryptService
         if ((int)nca.Header.KeyGeneration == newKeyGeneration)
         {
             inputStream.Position = 0;
-            await Common.CopyStreamAsync(inputStream, outputStream, onRead, ct);
+            await Common.Utils.CopyStreamAsync(inputStream, outputStream, onRead, ct);
             return;
         }
 
@@ -82,6 +82,7 @@ public static class NcaRecryptService
 
             for (int k = 0; k < 4; k++)
             {
+                ct.ThrowIfCancellationRequested();
                 int keyOffset = 0x300 + k * 0x10;
                 byte[] key = new byte[0x10];
                 Array.Copy(headerBytes, keyOffset, key, 0, 0x10);
@@ -99,7 +100,10 @@ public static class NcaRecryptService
         byte[] key2 = keySet.HeaderKey.SubKeys[1].DataRo.ToArray();
         var transform = new Aes128XtsTransform(key1, key2, false);
         for (int sector = 0; sector < 6; sector++)
+        {
+            ct.ThrowIfCancellationRequested();
             transform.TransformBlock(headerBytes, sector * 0x200, 0x200, (ulong)sector);
+        }
 
         return headerBytes;
     }

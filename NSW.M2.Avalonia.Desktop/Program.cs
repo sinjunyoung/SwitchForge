@@ -27,6 +27,5 @@ sealed class Program
                 ]
         })
         .WithInterFont()
-        .UseReactiveUI()
         .LogToTrace();
 }

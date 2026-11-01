@@ -46,6 +46,7 @@ public class Ncz : Nca
         {
             NczReadMode.Original => CreateOriginalNczToNcaStream(nczHeader, nczStream),
             NczReadMode.Fast => CreateFastNczToNcaStream(nczHeader, nczStream, keySet),
+            NczReadMode.Decompressed => CreateDecompressedNczToNcaStream(nczHeader, nczStream),
             _ => throw new ArgumentOutOfRangeException(nameof(readMode), readMode, null),
         };
         return nczHeader;
@@ -76,6 +77,16 @@ public class Ncz : Nca
             new NczBlocklessDecompressionStream(nczHeader, nczStream);
 
         return new NczToNcaStream(plaintextPatchedNczHeader, decompressionStream, nczHeader.NcaSize);
+    }
+
+    private static NczToNcaStream CreateDecompressedNczToNcaStream(NczHeader nczHeader, Stream nczStream)
+    {
+        Stream decompressionStream = nczHeader.IsUsingBlockCompression
+            ? new NczBlockDecompressionStream(nczHeader, nczStream)
+            : new NczBlocklessDecompressionStream(nczHeader, nczStream);
+
+        // NcaEncryptionStream 없이 바로 반환
+        return new NczToNcaStream(nczHeader.OriginalBytes, decompressionStream, nczHeader.NcaSize);
     }
 
     /// <summary>
@@ -194,7 +205,7 @@ public class NczHeader
             nczHeader.Sections[i] = new NczSection(section);
             ncaSize += section.Size;
         }
-        nczHeader.NcaSize = nczHeader.Sections[^1].Offset + nczHeader.Sections[^1].Size;
+        nczHeader.NcaSize = ncaSize;
 
         var blockMagic = nczBinaryReader.ReadAsciiString(8);
         const string NCZ_BLOCK_MAGIC = "NCZBLOCK";
@@ -225,5 +236,6 @@ public enum NczReadMode
     /// Combines the decrypted header with the decompressed part.
     /// Prefer this stream if you want to browse the FS content faster, but beware: NCA integrity checks (signature and hash) will very probably fail.
     /// </summary>
-    Fast
+    Fast,
+    Decompressed
 }

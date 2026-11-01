@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Common;
 using NSW.Avalonia.Services;
 using NSW.Avalonia.UI;
 using NSW.Core.Enums;
@@ -153,7 +154,7 @@ public partial class MainView : UserControl
         {
             await Task.Run(async () =>
             {
-                var results = await NspMergeService.Merge(inputPaths, outputDir, compressLevel, isValidationEnabled, useBlockMode, forceKeyGen0, _progressReporter, Log, _cts.Token);
+                var results = await NspMergeService.Merge(inputPaths, outputDir, compressLevel, useBlockMode, isValidationEnabled, forceKeyGen0, _progressReporter, Log, _cts.Token);
 
                 if (results != null && results.Count > 0)
                 {

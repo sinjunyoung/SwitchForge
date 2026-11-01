@@ -1,13 +1,12 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using NSW.Utils;
 using ReactiveUI;
 using System;
 using System.IO;
 
 namespace NSW.Avalonia.ViewModels;
 
-public class GameFile(string filePath) : ReactiveObject, IDisposable
+public partial class GameFile(string filePath) : ReactiveObject, IDisposable
 {
     #region Fields & Properties
 
@@ -52,7 +51,7 @@ public class GameFile(string filePath) : ReactiveObject, IDisposable
         {
             try
             {
-                return Common.FormatFileSize(RawBytes);
+                return Common.Utils.FormatFileSize(RawBytes);
             }
             catch { return "-"; }
         }
@@ -130,13 +129,17 @@ public class GameFile(string filePath) : ReactiveObject, IDisposable
         }
     }
 
-    public string TitleName { get; set; } = "Unknown";
+    [ReactiveUI.SourceGenerators.Reactive]
+    public partial string TitleName { get; set; } = "Unknown";
 
-    public string TitleId { get; set; } = "0000000000000000";
+    [ReactiveUI.SourceGenerators.Reactive]
+    public partial string TitleId { get; set; } = "0000000000000000";
 
-    public string Version { get; set; } = "0.0.0";
+    [ReactiveUI.SourceGenerators.Reactive]
+    public partial string Version { get; set; } = "0.0.0";
 
-    public string Developer { get; set; } = "Unknown";
+    [ReactiveUI.SourceGenerators.Reactive]
+    public partial string Developer { get; set; } = "Unknown";
 
     #endregion
 

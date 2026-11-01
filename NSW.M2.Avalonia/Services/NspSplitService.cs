@@ -1,4 +1,4 @@
-﻿using DynamicData;
+﻿using Common;
 using LibHac.Common;
 using LibHac.Common.Keys;
 using LibHac.Fs;
@@ -12,7 +12,6 @@ using LibHac.Tools.FsSystem.NcaUtils;
 using LibHac.Tools.Ncm;
 using NSW.Avalonia.Services;
 using NSW.Core;
-using NSW.Core.Enums;
 using NSW.Core.Models;
 using NSW.Utils;
 using System;
@@ -145,7 +144,7 @@ public static class NspSplitService
                     disposables.Add(tikStorage);
                     tikStorage.GetSize(out long tikSize).ThrowIfFailure();
                     var captured = tikStorage;
-                    fileEntries.Add((kvp.Value.EntryName, async (s, onRead) => await Common.CopyStreamAsync(captured.AsStream(), s, onRead, ct), tikSize, kvp.Value.EntryName));
+                    fileEntries.Add((kvp.Value.EntryName, async (s, onRead) => await Common.Utils.CopyStreamAsync(captured.AsStream(), s, onRead, ct), tikSize, kvp.Value.EntryName));
                 }
             }
 
@@ -161,7 +160,7 @@ public static class NspSplitService
             foreach (var record in cnmt.ContentEntries)
             {
                 ct.ThrowIfCancellationRequested();
-                string targetId = BitConverter.ToString(record.NcaId).Replace("-", string.Empty).ToLower();
+                string targetId = Convert.ToHexStringLower(record.NcaId);
 
                 string ncaKey = fileRegistry.Keys.FirstOrDefault(k =>
                     Path.GetFileNameWithoutExtension(k).StartsWith(targetId, StringComparison.OrdinalIgnoreCase));
@@ -244,7 +243,7 @@ public static class NspSplitService
             string versionPart = typeTag != "DLC" ? $" [v{meta.GetEffectiveDisplayVersion()}]" : string.Empty;
             string outName = $"{baseTitle} [{meta.TitleId}] ({typeTag}){versionPart}{(useCompression ? ".nsz" : ".nsp")}";
             outName = SanitizeFileName(outName);
-            finalPath = Common.GetUniqueFilePath(Path.Combine(outputDir, outName));
+            finalPath = Common.Utils.GetUniqueFilePath(Path.Combine(outputDir, outName));
 
             string displayName = NspNameBuilder.DisplayNameBuild(meta.EnTitle, meta.TitleId, meta.DisplayVersion);
             using var fout = File.Open(finalPath, FileMode.Create, FileAccess.ReadWrite);
