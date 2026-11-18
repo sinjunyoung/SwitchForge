@@ -3,6 +3,7 @@
 Nintendo Switch ROM Packaging Utility
 
 SwitchForge is a Windows desktop tool for unpacking, repacking, merging, converting and compressing Nintendo Switch titles. It was split out from RomForge.
+* [RomForge](https://github.com/sinjunyoung/RomForge)
 
 ## Features
 
