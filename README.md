@@ -11,13 +11,12 @@ SwitchForge is a Windows desktop tool for unpacking, repacking, merging, convert
 ## Features
 
 * **Repack** — NSP/XCI unpack & repack with file replacement, patch application (IPS, IPS32, BPS, UPS, xdelta) and per-file Lz4 romfs compression
-* **Merge** — base + update (+ DLC) merge, Lz4 merge compression, version ignore
-* **Convert** — NSP / NSZ / XCI / XCZ conversion and compression
-* **Split** — split large outputs
-* **Rename** — batch file renaming with a custom format
+* **Merge** — base + update + DLC merge
+* **Split** — base, update, DLC split
+* **Format conversion** — NSP / NSZ / XCI / XCZ conversion and compression
 * **Saturn conversion** — Sega Saturn ROM NSP conversion
-* **Key generation** — key tools
-* **Multi-language UI** — Korean, English, Japanese, Simplified Chinese, Traditional Chinese, French, German, Russian, Spanish
+* **Rename** — batch file renaming with a custom format
+
 
 ## Requirements
 
