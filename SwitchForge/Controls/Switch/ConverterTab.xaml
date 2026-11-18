@@ -1,0 +1,307 @@
+﻿<UserControl x:Class="SwitchForge.Controls.Switch.ConverterTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:SwitchForge.ViewModels.Switch"
+             xmlns:l="clr-namespace:Common.Localization;assembly=Common"
+             xmlns:converters2="clr-namespace:SwitchForge.Core.Converters;assembly=SwitchForge.Core"
+             mc:Ignorable="d"
+             d:DesignHeight="650" d:DesignWidth="1016"
+             Background="#1E1E1E">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" MinHeight="300"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <ListView x:Name="lvFiles" Grid.Row="0" Margin="5,0,5,0" ItemsSource="{Binding FileItems}" IsEnabled="{Binding IsLocked, Converter={StaticResource InverseBool}}" SelectionMode="Extended" AllowDrop="True"
+                      KeyUp="LvFiles_KeyUp" Drop="LvFiles_Drop" DragOver="LvFiles_DragOver" GridViewColumnHeader.Click="GridViewColumnHeader_Click" ContextMenuOpening="LvFiles_ContextMenuOpening">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem" BasedOn="{StaticResource {x:Type ListViewItem}}">
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#252526"/>
+                                <Setter Property="BorderBrush" Value="#3F3F46"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#073655"/>
+                                <Setter Property="BorderBrush" Value="#1C97EA"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{Binding Path=Current.MenuOpenFolder, Source={x:Static l:Loc.Instance}}" Click="MenuItem_OpenFolder_Click">
+                            <MenuItem.Icon>
+                                <Image Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Width="20" Height="20"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="{Binding Path=Current.MenuRemoveSelected, Source={x:Static l:Loc.Instance}}" Click="BtnRemoveFile_Click">
+                            <MenuItem.Icon>
+                                <Image Source="/Assets/Images/Delete.png" Width="20" Height="20"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{Binding Path=Current.MenuClear, Source={x:Static l:Loc.Instance}}" Click="BtnRemoveAllFiles_Click">
+                            <MenuItem.Icon>
+                                <Image Source="/Assets/Images/Clear.png" Width="20" Height="20"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </ListView.ContextMenu>
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Width="Auto">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="No">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Image Source="/Assets/Images/List.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Foreground="#BBBBBB" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding No}" Foreground="#888888" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="270">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="TitleName">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="/SwitchForge.Core;component/Assets/Images/Title.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Path=Current.HeaderTitle, Source={x:Static l:Loc.Instance}}" Foreground="#BBBBBB" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="36" Height="36" CornerRadius="6" Margin="0,0,12,0">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill"/>
+                                            </Border.Background>
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding TitleName}" Foreground="#E8E8F0" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="220" ToolTip="{Binding FilePath}"/>
+                                            <TextBlock Text="{Binding TitleID}" Foreground="#8888A8" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" MaxWidth="220"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="Auto">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="FileType">
+                                    <Image Source="/SwitchForge.Core;component/Assets/Images/Categories.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding TypeBackground}" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding FileTypeText}" Foreground="{Binding TypeForeground}" FontSize="11" FontWeight="SemiBold"/>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="60">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="Extension">
+                                    <Image Source="/SwitchForge.Core;component/Assets/Images/Input.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Background="{Binding ExtensionBackground}" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="2,0">
+                                        <TextBlock Text="{Binding Extension, StringFormat={}{0:U}}" Foreground="{Binding ExtensionForeground}" FontWeight="Bold" FontSize="11" VerticalAlignment="Center"/>
+                                    </Border>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="Auto">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="/SwitchForge.Core;component/Assets/Images/Output.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Path=Current.HeaderOutput, Source={x:Static l:Loc.Instance}}" Foreground="#BBBBBB" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding AvailableFormats}" SelectedItem="{Binding SelectedTargetFormat, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="Auto">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="Version">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="/SwitchForge.Core;component/Assets/Images/Version.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Path=Current.HeaderVersion, Source={x:Static l:Loc.Instance}}" Foreground="#BBBBBB" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Version}" Foreground="#888888" FontSize="11" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="Auto">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="FileSize">
+                                    <Image Source="/Assets/Images/FileSizeBytes.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding FileSize}" Padding="6,0" HorizontalAlignment="Right"/>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+
+                        <GridViewColumn Width="110">
+                            <GridViewColumn.Header>
+                                <GridViewColumnHeader Tag="Status">
+                                    <Image Source="/Assets/Images/Progress.png" Width="24" Height="24" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                </GridViewColumnHeader>
+                            </GridViewColumn.Header>
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="6,0">
+                                        <TextBlock Text="{Binding Status}" Foreground="{Binding StatusColor}" FontSize="10" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                        <Grid>
+                                            <ProgressBar Value="{Binding Progress}" Maximum="100" Style="{StaticResource ProgressBarStyle}" Height="14"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Progress}" Foreground="White" FontSize="10" FontWeight="Bold"/>
+                                                <TextBlock Text="%" Foreground="White" FontSize="10" FontWeight="Bold" Margin="1,0,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+
+            <Border IsHitTestVisible="False" Visibility="{Binding HintVisibility}" BorderBrush="#333337" BorderThickness="1" Margin="15,55,15,15" CornerRadius="6">
+                <Border.Background>
+                    <SolidColorBrush Color="#181818" Opacity="0.95"/>
+                </Border.Background>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.9">
+                    <Image Source="/Assets/Images/Info.png" Width="28" Height="28" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Path=Current.HintDropFileOrFolder, Source={x:Static l:Loc.Instance}}" Foreground="LightGray" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding Path=Current.DescConvertFormats, Source={x:Static l:Loc.Instance}}" Foreground="#D4AF37" FontSize="13" FontWeight="Bold" Margin="0,8,0,0" HorizontalAlignment="Center"/>
+                    <ItemsControl HorizontalAlignment="Center" Margin="0,5,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.Items>
+                            <Border Background="#1A4D56B2" BorderBrush="#4D4D56B2" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="4,0">
+                                <TextBlock Text="NSP" Foreground="#8FA3FF" FontWeight="Bold" FontSize="11" VerticalAlignment="Center">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect BlurRadius="4" ShadowDepth="0" Color="#8FA3FF" Opacity="0.4"/>
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Border>
+                            <Border Background="#1A9E5B24" BorderBrush="#559E5B24" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="4,0">
+                                <TextBlock Text="NSZ" Foreground="#FFA254" FontWeight="Bold" FontSize="11" VerticalAlignment="Center">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect BlurRadius="4" ShadowDepth="0" Color="#FFA254" Opacity="0.4"/>
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Border>
+                            <Border Background="#1A9E2469" BorderBrush="#559E2469" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="4,0">
+                                <TextBlock Text="XCI" Foreground="#FF73C9" FontWeight="Bold" FontSize="11" VerticalAlignment="Center">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect BlurRadius="4" ShadowDepth="0" Color="#FF73C9" Opacity="0.4"/>
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Border>
+                            <Border Background="#1A1B8A5A" BorderBrush="#551B8A5A" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="4,0">
+                                <TextBlock Text="XCZ" Foreground="#54FFB5" FontWeight="Bold" FontSize="11" VerticalAlignment="Center">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect BlurRadius="4" ShadowDepth="0" Color="#54FFB5" Opacity="0.4"/>
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Border>
+                        </ItemsControl.Items>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Margin="5,0,5,5" Background="#252526" Padding="8,6" BorderBrush="#2D2D30" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource RunButton}" IsEnabled="{Binding IsLocked, Converter={StaticResource InverseBool}}" Command="{Binding RunCommand}" Margin="0,0,6,0">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/Assets/Images/Run.png" Width="24" Height="24" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="{Binding Path=Current.ButtonStart, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                    <Button Style="{StaticResource CancelButton}" IsEnabled="{Binding IsLocked}" Command="{Binding CancelCommand}">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/Assets/Images/Cancel.png" Width="24" Height="24" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="{Binding Path=Current.ButtonCancel, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource CancelButton}" IsEnabled="{Binding IsLocked, Converter={StaticResource InverseBool}}" Click="BtnAddFiles_Click" Margin="0,0,6,0">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/SwitchForge.Core;component/Assets/Images/AddFile.png" Width="24" Height="24" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="{Binding Path=Current.ButtonAddFile, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                    <Button Style="{StaticResource CancelButton}" IsEnabled="{Binding IsLocked, Converter={StaticResource InverseBool}}" Click="BtnAddFolder_Click" Margin="0,0,6,0">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Width="24" Height="24" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="{Binding Path=Current.ButtonAddFolder, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                    <Button Style="{StaticResource CancelButton}" IsEnabled="{Binding IsLocked, Converter={StaticResource InverseBool}}" Click="BtnRemoveFile_Click" Margin="0,0,6,0">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/Assets/Images/Delete.png" Width="24" Height="24" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="{Binding Path=Current.ButtonRemoveSelected, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                    <Button Style="{StaticResource CancelButton}" IsEnabled="{Binding IsLocked, Converter={StaticResource InverseBool}}" Click="BtnRemoveAllFiles_Click" Margin="0,0,6,0">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/Assets/Images/Clear.png" Width="24" Height="24" Margin="0,0,6,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="{Binding Path=Current.ButtonClear, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button.Content>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

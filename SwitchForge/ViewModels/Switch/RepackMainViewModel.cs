@@ -1,0 +1,318 @@
+﻿using Common.Models;
+using Common.Services;
+using Common.Localization;
+using LibHac.Ns;
+using NSW.Core.Exceptions;
+using NSW.Core.Services;
+using NSW.HacPack.Models;
+using SwitchForge.Core;
+using SwitchForge.Core.Models.Switch;
+using SwitchForge.Core.Services;
+using SwitchForge.Core.Services.Switch;
+using SwitchForge.Core.UI.Command;
+using SwitchForge.Core.ViewModels.Switch;
+using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using System.Windows.Input;
+
+namespace SwitchForge.ViewModels.Switch
+{
+    public class RepackMainViewModel : ProgressToolTabViewModel
+    {
+        private static int CompressLevel => AppConfig.Instance.Switch.CompressLevel;
+        private static SwitchCompressionMode CompressionMode => AppConfig.Instance.Switch.CompressionMode;
+
+        private readonly Stopwatch _totalSw = new();
+
+        private BuildMode? _currentMode;
+
+        private bool UseNsz => OutputFormat == OutputFormat.NSZ;
+
+        public bool IsIndeterminate { get; set { SetProperty(ref field, value); } } = false;
+
+        public string OutputPath { get; set { SetProperty(ref field, value); OnPropertyChanged(nameof(OutputHintVisibility)); AppConfig.Instance.OutputFolders.SwitchRepackOutputPath = value; } } = string.Empty;
+
+        public OutputFormat OutputFormat { get; set { SetProperty(ref field, value); } } = OutputFormat.NSP;
+
+        public bool IsUnpackRunning => IsLocked && _currentMode == BuildMode.UnpackOnly;
+
+        public bool IsRebuildRunning => IsLocked && _currentMode == BuildMode.RebuildOnly;
+
+        public bool IsFullRunning => IsLocked && _currentMode == BuildMode.FullProcess;
+
+        public bool UnpackEnabled => !IsLocked || _currentMode == BuildMode.UnpackOnly;
+
+        public bool RebuildEnabled => !IsLocked || _currentMode == BuildMode.RebuildOnly;
+
+        public bool StartEnabled => !IsLocked || _currentMode == BuildMode.FullProcess;
+
+        public Visibility OutputHintVisibility => string.IsNullOrEmpty(OutputPath) ? Visibility.Visible : Visibility.Collapsed;
+
+        public record BuildContext(IList<GameFile> GameFiles, GameMetadata? Metadata, ApplicationControlProperty.Language ForcedLanguage, byte? TargetIdOffset, ulong? OverrideTitleId);
+
+        public BuildContext? Context { get; set; }
+
+        public ICommand BrowseOutputCommand { get; }
+
+        public RepackMainViewModel()
+        {
+            OutputPath = string.IsNullOrWhiteSpace(AppConfig.Instance.OutputFolders.SwitchRepackOutputPath) ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "output") : AppConfig.Instance.OutputFolders.SwitchRepackOutputPath;
+            BrowseOutputCommand = new RelayCommand(async _ => await BrowseOutput());
+            PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(IsLocked))
+                    NotifyButtonStates();
+            };
+        }
+
+        public async Task StartAsync(BuildMode mode)
+        {
+            if (!TryGetBuildRequest(mode, out var req, out string errorMsg) || req == null)
+            {
+                AppendLog(errorMsg, LogLevel.Error);
+                await SoundPlayer.PlayErrorAsync();
+                return;
+            }
+
+            string unpackedPath = Path.Combine(req.OutputDir, "unpacked");
+
+            if (mode == BuildMode.UnpackOnly && Directory.Exists(unpackedPath))
+            {
+                if (!MessageBoxHelper.ShowQuestion(Loc.S.MsgConfirmDiscardUnpacked))
+                    return;
+            }
+
+            _totalSw.Restart();
+
+            _currentMode = mode;
+
+            NotifyButtonStates();
+
+            using (BeginWork())
+            {
+                try
+                {
+                    await ExecuteBuildAsync(mode, req);
+                }
+                finally
+                {
+                    CleanupTask();
+                }
+            }
+
+            _currentMode = null;
+
+            NotifyButtonStates();
+        }
+
+        public override string? HelpPageKey => "switch-unpack-repack";
+
+        private void NotifyButtonStates()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                OnPropertyChanged(nameof(IsUnpackRunning));
+                OnPropertyChanged(nameof(IsRebuildRunning));
+                OnPropertyChanged(nameof(IsFullRunning));
+                OnPropertyChanged(nameof(UnpackEnabled));
+                OnPropertyChanged(nameof(RebuildEnabled));
+                OnPropertyChanged(nameof(StartEnabled));
+            });
+        }
+
+        private async Task ExecuteBuildAsync(BuildMode mode, NSW.Core.Models.BuildRequest req)
+        {
+            CancellationTokenSource = new CancellationTokenSource();
+
+            var token = CancellationTokenSource.Token;
+            var progress = new Progress<ProgressInfo>(p =>
+            {
+                bool isIndeterminate = p.Percent < 0;
+
+                ProgressPct = isIndeterminate ? 0 : p.Percent;
+                IsIndeterminate = isIndeterminate;
+                ProgressLabel = p.Label;
+                ProgressPercent = isIndeterminate ? string.Empty : $"{p.Percent}%";
+                ProgressSpeed = p.Speed;
+                ProgressTime = isIndeterminate ? string.Empty : (string.IsNullOrEmpty(p.TimeInfo) ? Loc.S.ProgressElapsed(_totalSw.Elapsed.ToString(@"mm\:ss")) : p.TimeInfo);
+            });
+
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    req.Language = Context?.ForcedLanguage ?? default;
+                    req.UserMetadata = Context?.Metadata;
+                    req.OverrideKeyGeneration = 1;
+
+                    if (Context?.TargetIdOffset.HasValue == true)
+                        req.TargetIdOffset = Context?.TargetIdOffset;
+
+                    if (Context?.OverrideTitleId.HasValue == true)
+                        req.OverrideTitleId = Context?.OverrideTitleId;
+
+                    string finalResult = await NspBuildService.Run(req, mode, AppConfig.Instance.Switch.Lz4CompressLevel, progress, (msg, lvl) => AppendLog(msg, lvl), token);
+
+                    AppendLog(Loc.S.LogDoneTotalTime(_totalSw.Elapsed.ToString(@"mm\:ss")), LogLevel.Ok);
+                    await SoundPlayer.PlayCompleteAsync();
+                    req.OutputDir?.OpenFolder();
+                }
+                catch (OperationCanceledException)
+                {
+                    AppendLog(Loc.S.LogJobCancelled, LogLevel.Error);
+
+                    IsIndeterminate = false;
+
+                    await SoundPlayer.PlayCancelAsync();
+                    MainViewModel.SetTaskbarProgress(0);
+
+                    try
+                    {
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+
+                        if (mode == BuildMode.UnpackOnly)
+                            new WorkDirs(req.OutputDir).Cleanup();
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        Debug.WriteLine($"취소 후 작업 디렉터리 정리 실패: {cleanupEx.Message}");
+                    }
+                }
+                catch (UnpackMetadataNotFoundException bex)
+                {
+                    AppendLog(Loc.S.LogFailedWithMessage(bex.Message), LogLevel.Error);
+                    await SoundPlayer.PlayErrorAsync();
+                    MainViewModel.SetTaskbarProgress(100, System.Windows.Shell.TaskbarItemProgressState.Error);
+                }
+                catch (Exception ex)
+                {
+                    AppendLog(Loc.S.LogError(ex.Message), LogLevel.Error);
+                    await SoundPlayer.PlayErrorAsync();
+                    MainViewModel.SetTaskbarProgress(100, System.Windows.Shell.TaskbarItemProgressState.Error);
+                }
+                finally
+                {
+                    CleanupTask();
+                }
+            }, token);
+        }
+
+        private bool TryGetBuildRequest(BuildMode mode, out NSW.Core.Models.BuildRequest? req, out string errorMsg)
+        {
+            req = null;
+            errorMsg = string.Empty;
+
+            if (string.IsNullOrEmpty(OutputPath))
+            {
+                errorMsg = Loc.S.ErrSelectWorkFolder;
+                return false;
+            }
+
+            if (mode == BuildMode.RebuildOnly)
+            {
+                string unpackedPath = Path.Combine(OutputPath, "unpacked");
+
+                if (!Directory.Exists(unpackedPath))
+                {
+                    errorMsg = Loc.S.ErrNoUnpackedData;
+                    return false;
+                }
+
+                string tempPath = Path.Combine(OutputPath, "temp");
+
+                if (!Directory.Exists(tempPath))
+                    Directory.CreateDirectory(tempPath);
+
+                req = new NSW.Core.Models.BuildRequest(string.Empty, string.Empty, [], string.Empty, OutputPath)
+                {
+                    CompressRomfs = RepackLz4Sync.ResolveProgramOverride(Context?.GameFiles, rebuildOnly: true),
+                    DlcCompressRomfs = RepackLz4Sync.ResolveDlcOverrides(Context?.GameFiles, rebuildOnly: true),
+                    OutputNsz = UseNsz,
+                    CompressLevel = CompressLevel,
+                    CompressionMode = CompressionMode
+                };
+
+                return true;
+            }
+
+            var gameFiles = Context?.GameFiles;
+
+            if (gameFiles != null && gameFiles.Any(f => f.IsUnpacked))
+            {
+                errorMsg = Loc.S.ErrUnpackedFolderEntry;
+                return false;
+            }
+
+            if (gameFiles == null || !gameFiles.Any(f => f.FileType.Contains('B')))
+            {
+                errorMsg = Loc.S.ErrBaseNotInList;
+                return false;
+            }
+
+            if (gameFiles.Any(f => f.IsKeyMissing))
+            {
+                errorMsg = Loc.S.MainErrNoKeys;
+                return false;
+            }
+
+            var baseEntry = gameFiles.First(f => f.FileType.Contains('B'));
+            var updateEntry = gameFiles.FirstOrDefault(f => f.FileType.Contains('U'));
+
+            if (updateEntry != null && !string.IsNullOrEmpty(baseEntry.TitleID) && !string.IsNullOrEmpty(updateEntry.TitleID))
+            {
+                string baseId13 = baseEntry.TitleID.Length >= 13 ? baseEntry.TitleID[..13] : baseEntry.TitleID;
+                string updateId13 = updateEntry.TitleID.Length >= 13 ? updateEntry.TitleID[..13] : updateEntry.TitleID;
+
+                if (!string.Equals(baseId13, updateId13, StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMsg = Loc.S.ErrBaseUpdateTitleMismatch;
+                    return false;
+                }
+            }
+
+            var dlcEntries = gameFiles.Where(f => f.FileType.Contains('D')).ToList();
+            var mainPatchSource = !string.IsNullOrEmpty(baseEntry.PatchPath) ? baseEntry : updateEntry;
+            string mainPatch = (mainPatchSource?.PatchPath ?? string.Empty).Trim();
+            string? mainPatchPassword = mainPatchSource?.PatchPassword;
+            var dlcPatchDirs = dlcEntries
+                .Where(f => !string.IsNullOrEmpty(f.PatchPath) && !string.IsNullOrEmpty(f.TitleID))
+                .ToDictionary(f => f.TitleID!, f => f.PatchPath!.Trim(), StringComparer.OrdinalIgnoreCase);
+            var dlcPatchPasswords = dlcEntries
+                .Where(f => !string.IsNullOrEmpty(f.PatchPath) && !string.IsNullOrEmpty(f.TitleID) && !string.IsNullOrEmpty(f.PatchPassword))
+                .ToDictionary(f => f.TitleID!, f => f.PatchPassword!, StringComparer.OrdinalIgnoreCase);
+            bool hasUnresolvedRow = gameFiles.Any(f => f.FileType.Contains('D') && (f.FileType.Contains('B') || f.FileType.Contains('U')));
+            Dictionary<string, HashSet<string>>? dlcTitleIds = hasUnresolvedRow
+                ? null
+                : dlcEntries
+                    .Where(f => !string.IsNullOrEmpty(f.TitleID))
+                    .GroupBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.Select(f => f.TitleID!).ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+
+            req = new NSW.Core.Models.BuildRequest(baseEntry.FilePath, updateEntry?.FilePath ?? string.Empty, [.. dlcEntries.Select(f => f.FilePath)], mainPatch, OutputPath)
+            {
+                DlcTitleIdsByFile = dlcTitleIds,
+                DlcPatchDirs = dlcPatchDirs,
+                PatchPassword = mainPatchPassword,
+                DlcPatchPasswords = dlcPatchPasswords,
+                CompressRomfs = RepackLz4Sync.ResolveProgramOverride(gameFiles, rebuildOnly: false),
+                DlcCompressRomfs = RepackLz4Sync.ResolveDlcOverrides(gameFiles, rebuildOnly: false),
+                StreamRomfs = mode == BuildMode.FullProcess,
+                OutputNsz = UseNsz,
+                CompressLevel = CompressLevel,
+                CompressionMode = CompressionMode
+            };
+
+            return true;
+        }
+
+        private async Task BrowseOutput()
+        {
+            var dlg = new Microsoft.Win32.OpenFolderDialog { Title = Loc.S.DialogSelectWorkFolder };
+
+            if (dlg.ShowDialog() == true)
+                OutputPath = dlg.FolderName;
+        }
+    }
+}

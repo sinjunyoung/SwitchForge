@@ -1,0 +1,175 @@
+﻿<local:SwitchListControlBase x:Class="SwitchForge.Controls.Switch.RepackListControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:SwitchForge.Controls.Switch"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:l="clr-namespace:Common.Localization;assembly=Common"
+             mc:Ignorable="d"
+             d:DesignHeight="400" d:DesignWidth="900">
+
+    <Border BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="8" Background="#12FFFFFF" Padding="10">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="40"/>
+            </Grid.ColumnDefinitions>
+            <Grid Grid.Column="0">
+                <local:SwitchDropHint x:Name="dropHint" Title="{Binding Path=Current.HintDropGameFileOrFolder, Source={x:Static l:Loc.Instance}}" Subtitle="{Binding Path=Current.HintRepackReplaceRule, Source={x:Static l:Loc.Instance}}"/>
+                <ListView x:Name="lvFiles" AllowDrop="True" DragEnter="LvFiles_DragEnter" Drop="LvFiles_Drop" KeyUp="LvFiles_KeyUp" SelectionMode="Extended" ContextMenuOpening="LvFiles_ContextMenuOpening">
+                    <ListView.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{Binding Path=Current.MenuOpenFolder, Source={x:Static l:Loc.Instance}}" Click="MenuItem_OpenFolder_Click">
+                                <MenuItem.Icon>
+                                    <Image Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Width="20" Height="20"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="{Binding Path=Current.MenuRemoveSelected, Source={x:Static l:Loc.Instance}}" Click="BtnRemoveFile_Click">
+                                <MenuItem.Icon>
+                                    <Image Source="/Assets/Images/Delete.png" Width="20" Height="20"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{Binding Path=Current.MenuClear, Source={x:Static l:Loc.Instance}}" Click="BtnRemoveAllFiles_Click">
+                                <MenuItem.Icon>
+                                    <Image Source="/Assets/Images/Clear.png" Width="20" Height="20"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </ListView.ContextMenu>
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Width="Auto">
+                                <GridViewColumn.Header>
+                                    <local:IconHeader Icon="/SwitchForge.Core;component/Assets/Images/Categories.png"/>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding TypeBackground}" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding FileTypeText}" Foreground="{Binding TypeForeground}" FontWeight="Bold" FontSize="11"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Width="370">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader Tag="TitleName">
+                                        <local:IconHeader Icon="/SwitchForge.Core;component/Assets/Images/Title.png" Text="{Binding Path=Current.HeaderTitle, Source={x:Static l:Loc.Instance}}"/>
+                                    </GridViewColumnHeader>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Border Width="36" Height="36" CornerRadius="6" Margin="0,0,12,0">
+                                                <Border.Background>
+                                                    <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill"/>
+                                                </Border.Background>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding TitleName}" FontWeight="Bold" FontSize="12" ToolTip="{Binding FilePath}"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                    <TextBlock Text="{Binding TitleID}" FontSize="10" Foreground="Gray"/>
+                                                    <Border Background="{Binding ExtensionBackground}" CornerRadius="2" Padding="3,0" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Extension}" Foreground="{Binding ExtensionForeground}" FontSize="9" FontWeight="Bold"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Version}" FontSize="10" Foreground="Gray" Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Version}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Width="Auto">
+                                <GridViewColumn.Header>
+                                    <local:IconHeader Icon="/Assets/Images/Patch.png" Text="{Binding Path=Current.HeaderPatch, Source={x:Static l:Loc.Instance}}"/>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Width="32" Height="32" CornerRadius="4" Background="#3A3A40" BorderBrush="#5A5A62" BorderThickness="1" ToolTip="{Binding PatchDisplay}" AllowDrop="True" Cursor="Hand" Tag="{Binding}"
+                                                DragEnter="PatchDropTarget_DragEnter" DragLeave="PatchDropTarget_DragLeave" Drop="PatchDropTarget_Drop" MouseLeftButtonUp="PatchDropTarget_Click">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="{Binding Path=Current.MenuSelectFolder, Source={x:Static l:Loc.Instance}}" Click="PatchMenu_SelectFolder_Click">
+                                                        <MenuItem.Icon>
+                                                            <Image Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Width="24" Height="24"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="{Binding Path=Current.MenuSelectArchive, Source={x:Static l:Loc.Instance}}" Click="PatchMenu_SelectArchive_Click">
+                                                        <MenuItem.Icon>
+                                                            <Image Source="/Assets/Images/ZipFolder.png" Width="24" Height="24"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="{Binding Path=Current.MenuDeselect, Source={x:Static l:Loc.Instance}}" Click="MenuItem_RemovePatch_Click">
+                                                        <MenuItem.Icon>
+                                                            <Image Source="/Assets/Images/Cancel.png" Width="24" Height="24"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Image Source="{Binding PatchIconSource}" Width="18" Height="18" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Width="Auto">
+                                <GridViewColumn.Header>
+                                    <local:IconHeader Icon="/Assets/Images/FileSizeBytes.png"/>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FileSize}" FontSize="11" HorizontalAlignment="Right"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Width="Auto">
+                                <GridViewColumn.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox Style="{StaticResource SplitCheckBoxStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" IsChecked="False" IsThreeState="False" Margin="0,0,5,0" Checked="HeaderCheckBox_Checked" Unchecked="HeaderCheckBox_Unchecked"/>
+                                        <TextBlock Text="Lz4" Foreground="#BBBBBB" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" ToolTip="{Binding Path=Current.ToolTipRomFsLz4, Source={x:Static l:Loc.Instance}}"/>
+                                    </StackPanel>
+                                </GridViewColumn.Header>
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Style="{StaticResource SplitCheckBoxStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" IsChecked="{Binding IsLz4, Mode=TwoWay}" IsThreeState="False" Visibility="{Binding CanSetLz4, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+
+            <StackPanel Grid.Column="1" Margin="10,2,0,0" VerticalAlignment="Top">
+                <Button ToolTip="{Binding Path=Current.ToolTipAddFile, Source={x:Static l:Loc.Instance}}" Style="{StaticResource ListToolButton}" Click="BtnAddFile_Click">
+                    <Image Source="/SwitchForge.Core;component/Assets/Images/AddFile.png" Style="{StaticResource ListToolIcon}"/>
+                </Button>
+                <Button ToolTip="{Binding Path=Current.ToolTipAddFolder, Source={x:Static l:Loc.Instance}}" Style="{StaticResource ListToolButton}" Click="BtnAddFolder_Click">
+                    <Image Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Style="{StaticResource ListToolIcon}"/>
+                </Button>
+                <Button ToolTip="{Binding Path=Current.ToolTipBatchKoreanPatch, Source={x:Static l:Loc.Instance}}" Style="{StaticResource ListToolButton}" Click="BtnBulkPatch_Click">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{Binding Path=Current.MenuFindInFolder, Source={x:Static l:Loc.Instance}}" Click="BulkPatchMenu_FromFolder_Click">
+                                <MenuItem.Icon>
+                                    <Image Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Width="24" Height="24"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{Binding Path=Current.MenuFindInArchive, Source={x:Static l:Loc.Instance}}" Click="BulkPatchMenu_FromArchive_Click">
+                                <MenuItem.Icon>
+                                    <Image Source="/Assets/Images/ZipFolder.png" Width="24" Height="24"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                    <Image Source="/Assets/Images/Patch.png" Style="{StaticResource ListToolIcon}"/>
+                </Button>
+                <Button ToolTip="{Binding Path=Current.ToolTipRemoveSelected, Source={x:Static l:Loc.Instance}}" Style="{StaticResource ListToolButton}" Click="BtnRemoveFile_Click">
+                    <Image Source="/Assets/Images/Delete.png" Style="{StaticResource ListToolIcon}"/>
+                </Button>
+                <Button ToolTip="{Binding Path=Current.ToolTipClear, Source={x:Static l:Loc.Instance}}" Style="{StaticResource ListToolButton}" Click="BtnRemoveAllFiles_Click">
+                    <Image Source="/Assets/Images/Clear.png" Style="{StaticResource ListToolIcon}"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</local:SwitchListControlBase>

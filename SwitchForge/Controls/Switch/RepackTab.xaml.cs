@@ -1,0 +1,184 @@
+﻿using Common.Models;
+using SwitchForge.Core.Services.Switch;
+using SwitchForge.Core.ViewModels.Switch;
+using SwitchForge.ViewModels.Switch;
+using System.ComponentModel;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using Path = System.IO.Path;
+
+namespace SwitchForge.Controls.Switch;
+
+public partial class RepackTab : UserControl
+{
+    RepackMainViewModel ViewModel => (RepackMainViewModel)DataContext;
+
+    private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _unpackedCts;
+    private bool _unpackedWatchStarted;
+
+    public RepackTab()
+    {
+        InitializeComponent();
+        Loaded += RepackTab_Loaded;
+    }
+
+    private void RepackTab_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (System.ComponentModel.DesignerProperties.GetIsInDesignMode(this))
+            return;
+
+        if (titleList.DataContext is RepackRowViewModel vm)
+            vm.LogAction = (msg, level) => ViewModel.AppendLog(msg, level);
+
+        titleList.FileListChanged += SyncAll;
+
+        if (!_unpackedWatchStarted)
+        {
+            _unpackedWatchStarted = true;
+            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+
+            _ = LoadUnpackedAsync(0);
+        }
+
+        SyncAll();
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RepackMainViewModel.OutputPath))
+            _ = LoadUnpackedAsync(500);
+    }
+
+    private async Task LoadUnpackedAsync(int delayMs)
+    {
+        _unpackedCts?.Cancel();
+
+        _unpackedCts = new CancellationTokenSource();
+
+        var token = _unpackedCts.Token;
+
+        try
+        {
+            if (delayMs > 0)
+                await Task.Delay(delayMs, token);
+
+            if (string.IsNullOrWhiteSpace(ViewModel.OutputPath))
+                return;
+
+            await titleList.LoadUnpackedAsync(Path.Combine(ViewModel.OutputPath, "unpacked"), token);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async void SyncAll()
+    {
+        _cts?.Cancel();
+
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, _cts.Token);
+
+            string unpackedPath = Path.Combine(ViewModel.OutputPath, "unpacked");
+
+            RepackLz4Sync.Refresh(titleList.GameFiles, unpackedPath);
+            await langTab.UpdateLanguageTabAsync(titleList.GameFiles, unpackedPath);
+            SyncContext();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void SyncContext() => ViewModel.Context = new RepackMainViewModel.BuildContext(titleList.GameFiles, langTab.CurrentMetadata, langTab.ForcedLanguage, langTab.TargetIdOffset, langTab.OverrideTitleId);
+
+    private async void BtnStart_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsLocked)
+        {
+            ViewModel.Cancel();
+            return;
+        }
+
+        await RecalcIfNeededAsync();
+        langTab.SyncMetadataFromUI();
+        SyncContext();
+        await ViewModel.StartAsync(BuildMode.FullProcess);
+    }
+
+    private async void BtnUnpack_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsLocked)
+        {
+            ViewModel.Cancel();
+            return;
+        }
+
+        await RecalcIfNeededAsync();
+        SyncContext();
+        await ViewModel.StartAsync(BuildMode.UnpackOnly);
+        RepackLz4Sync.Refresh(titleList.GameFiles, Path.Combine(ViewModel.OutputPath, "unpacked"));
+    }
+
+    private void BtnRebuild_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsLocked)
+        {
+            ViewModel.Cancel();
+            return;
+        }
+
+        SyncContext();
+        _ = ViewModel.StartAsync(BuildMode.RebuildOnly);
+    }
+
+    private async Task RecalcIfNeededAsync()
+    {
+        if (!titleList.GameFiles.Any(f => f.IsKeyMissing))
+            return;
+
+        var tcs = new TaskCompletionSource();
+
+        titleList.RecalcKeyMissingFiles(async () =>
+        {
+            await langTab.UpdateLanguageTabAsync(titleList.GameFiles);
+            tcs.TrySetResult();
+        });
+
+        await tcs.Task;
+    }
+
+    private void TxtOutputPath_PreviewDragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0 && Directory.Exists(paths[0]))
+                e.Effects = DragDropEffects.Copy;
+            else
+                e.Effects = DragDropEffects.None;
+        }
+        else
+            e.Effects = DragDropEffects.None;
+
+        e.Handled = true;
+    }
+
+    private void TxtOutputPath_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
+            {
+                string droppedPath = paths[0];
+                string? folderPath = Directory.Exists(droppedPath) ? droppedPath : Path.GetDirectoryName(droppedPath);
+
+                if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
+                    ViewModel.OutputPath = folderPath;
+
+            }
+        }
+
+        e.Handled = true;
+    }
+}

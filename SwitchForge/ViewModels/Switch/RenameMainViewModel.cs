@@ -1,0 +1,333 @@
+﻿using Common.Models;
+using Common.Localization;
+using NSW.Core;
+using NSW.Core.Models;
+using NSW.Core.Utils;
+using SwitchForge.Core;
+using SwitchForge.Core.Models.Naming;
+using SwitchForge.Core.Models.Switch;
+using SwitchForge.Core.Services;
+using SwitchForge.Core.Services.Naming;
+using SwitchForge.Core.Services.Switch;
+using SwitchForge.Core.UI.Command;
+using SwitchForge.Core.ViewModels;
+using SwitchForge.Core.ViewModels.Switch;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.IO;
+using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
+
+namespace SwitchForge.ViewModels.Switch;
+
+public class RenameMainViewModel : ToolTabViewModel
+{
+    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".nsp", ".xci", ".nsz", ".xcz" };
+
+    private CancellationTokenSource _cts = new();
+    private bool _refreshQueued;
+
+    public ObservableCollection<RenameFileItem> Items { get; } = [];
+
+    public IReadOnlyList<NamingTokenDefinition> NamingTokens => NamingTokenCatalog.Rename;
+
+    public Visibility HintVisibility => Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public ICommand RunCommand { get; }
+
+    public string FormatText
+    {
+        get => AppConfig.Instance.Switch.RenameFormat;
+        set
+        {
+            if (AppConfig.Instance.Switch.RenameFormat == value)
+                return;
+
+            AppConfig.Instance.Switch.RenameFormat = value;
+            OnPropertyChanged(nameof(FormatText));
+            ScheduleRefresh();
+        }
+    }
+
+    public string Summary { get; private set => SetProperty(ref field, value); } = string.Empty;
+
+    public RenameMainViewModel()
+    {
+        RunCommand = new RelayCommand(async _ => await RunAsync(), _ => !IsLocked && Items.Count > 0);
+        CancelCommand = new RelayCommand(_ => _cts.Cancel(), _ => IsLocked);
+        Items.CollectionChanged += Items_CollectionChanged;
+        Loc.Instance.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Loc.Current))
+                OnPropertyChanged(nameof(NamingTokens));
+        };
+    }
+
+    public async Task AddPathsAsync(IEnumerable<string> paths)
+    {
+        var keySet = KeySetProvider.Instance.KeySet;
+        var existing = Items.Select(f => f.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var newPaths = await Task.Run(() =>
+            paths.Where(p => SupportedExtensions.Contains(Path.GetExtension(p)))
+                 .Where(p => existing.Add(p))
+                 .ToList());
+
+        var added = new List<RenameFileItem>();
+
+        foreach (var path in newPaths)
+        {
+            var item = new RenameFileItem(path)
+            {
+                TypeState = keySet == null ? FileTypeState.NoKey : FileTypeState.Analyzing,
+                TitleName = Path.GetFileNameWithoutExtension(path)
+            };
+
+            Items.Add(item);
+            added.Add(item);
+        }
+
+        if (keySet == null)
+            return;
+
+        foreach (var item in added)
+        {
+            var info = await Task.Run<GameFileInfo?>(() =>
+            {
+                try
+                {
+                    return MetadataReader.ReadGameFileInfo(keySet.Clone(), item.FilePath);
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+
+            ApplyInfo(item, info);
+        }
+    }
+
+    public void RemoveItems(IEnumerable<RenameFileItem> items)
+    {
+        foreach (var item in items.ToList())
+            Items.Remove(item);
+    }
+
+    public void ClearItems() => Items.Clear();
+
+    public void RefreshPreview()
+    {
+        var plans = BuildPlans();
+
+        if (plans.Count != Items.Count)
+            return;
+
+        for (int i = 0; i < Items.Count; i++)
+            Items[i].ApplyPlan(plans[i], GetStatusOverride(Items[i]));
+
+        if (plans.Count == 0)
+        {
+            Summary = string.Empty;
+            return;
+        }
+
+        int ready = plans.Count(p => p.State == RenameState.Ready);
+        int skipped = CountSkipped(plans);
+
+        Summary = skipped == 0 ? Loc.S.RenameSummary(ready, plans.Count) : Loc.S.RenameSummarySkipped(ready, plans.Count, skipped);
+    }
+
+    public async Task RunAsync()
+    {
+        if (IsLocked)
+            return;
+
+        if (Items.Count == 0)
+        {
+            AppendLog(Loc.S.MainErrNoFiles, LogLevel.Error);
+            await SoundPlayer.PlayErrorAsync();
+            return;
+        }
+
+        var plans = BuildPlans();
+        var ready = plans.Where(p => p.State == RenameState.Ready).ToList();
+
+        if (ready.Count == 0)
+        {
+            AppendLog(Loc.S.LogNoFilesToRename, LogLevel.Error);
+            await SoundPlayer.PlayErrorAsync();
+            return;
+        }
+
+        int skipped = CountSkipped(plans);
+
+        if (skipped > 0)
+            AppendLog(Loc.S.LogSkippedCountReasons(skipped));
+
+        _cts.Dispose();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
+        using (BeginWork())
+        {
+            try
+            {
+                var results = await Task.Run(() => RenameService.Apply(ready, token));
+
+                int succeeded = 0;
+                int failed = 0;
+
+                foreach (var result in results)
+                {
+                    if (result.Success)
+                    {
+                        succeeded++;
+                        ReplaceItem(result.Plan);
+                        AppendLog($"{result.Plan.OldName} → {result.Plan.NewName}");
+                    }
+                    else
+                    {
+                        failed++;
+                        AppendLog($"{result.Plan.OldName}: {result.Error}", LogLevel.Error);
+                    }
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    AppendLog(Loc.S.LogJobCancelled, LogLevel.Error);
+                    await SoundPlayer.PlayCancelAsync();
+                }
+                else if (failed == 0)
+                {
+                    AppendLog(Loc.S.LogRenameDone(succeeded), LogLevel.Ok);
+                    await SoundPlayer.PlayCompleteAsync();
+                }
+                else
+                {
+                    AppendLog(Loc.S.LogRenameDoneWithFailures(succeeded, failed), LogLevel.Error);
+                    await SoundPlayer.PlayErrorAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog(Loc.S.LogError(ex.Message), LogLevel.Error);
+                await SoundPlayer.PlayErrorAsync();
+            }
+            finally
+            {
+                CleanupTask();
+            }
+        }
+    }
+
+    private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+        {
+            foreach (RenameFileItem item in e.OldItems)
+                item.PropertyChanged -= Item_PropertyChanged;
+        }
+
+        if (e.NewItems != null)
+        {
+            foreach (RenameFileItem item in e.NewItems)
+                item.PropertyChanged += Item_PropertyChanged;
+        }
+
+        OnPropertyChanged(nameof(HintVisibility));
+        CommandManager.InvalidateRequerySuggested();
+        ScheduleRefresh();
+    }
+
+    private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(GameFile.FileType) or nameof(GameFile.TypeState) or nameof(GameFile.TitleID) or nameof(GameFile.Version))
+            ScheduleRefresh();
+    }
+
+    private void ScheduleRefresh()
+    {
+        if (_refreshQueued)
+            return;
+
+        _refreshQueued = true;
+
+        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        {
+            _refreshQueued = false;
+            RefreshPreview();
+        }));
+    }
+
+    private static void ApplyInfo(RenameFileItem item, GameFileInfo? info)
+    {
+        if (info == null)
+        {
+            item.FileType = "?";
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(info.TitleName))
+            item.TitleName = info.TitleName;
+
+        if (info.IconData != null)
+            item.Icon = info.IconData.ToBitmapImage();
+
+        item.Naming = info.Naming;
+        item.TitleID = info.TitleId;
+        item.Version = info.DisplayVersion;
+        item.FileType = info.Type;
+    }
+
+    private static string? GetStatusOverride(GameFile file)
+    {
+        return file.TypeState switch
+        {
+            FileTypeState.Analyzing => Loc.S.StatusAnalyzing,
+            FileTypeState.NoKey => Loc.S.StatusNoKey,
+            _ => null
+        };
+    }
+
+    private List<RenamePlan> BuildPlans() => RenameService.BuildPlans(Items.Select(ToSource), FormatText);
+
+    private static RenameSource ToSource(GameFile file)
+    {
+        var naming = file.Naming;
+        string tag = NameBuilder.BuildTagPart(file.FileType.Contains('B'), file.FileType.Contains('U'), naming?.DlcCount ?? 0);
+        string name = naming is null ? string.Empty : NameBuilder.BuildNamePart(naming.KrTitle, naming.EnTitle);
+
+        return new RenameSource(file.FilePath, name, naming?.KoreanTitle, naming?.DefaultTitle, file.TitleID, tag, naming?.DisplayVersion ?? file.Version, naming?.TitleVersion.ToString(), HasMetadata(file));
+    }
+
+    private static bool HasMetadata(GameFile file) => file.Naming is not null && !string.IsNullOrEmpty(file.TitleID) && file.TypeState == FileTypeState.Resolved && file.FileType != "?";
+
+    private static int CountSkipped(IEnumerable<RenamePlan> plans) => plans.Count(p => p.State is not (RenameState.Ready or RenameState.Unchanged));
+
+    private void ReplaceItem(RenamePlan plan)
+    {
+        for (int i = 0; i < Items.Count; i++)
+        {
+            var old = Items[i];
+
+            if (!string.Equals(old.FilePath, plan.SourcePath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            Items[i] = new RenameFileItem(plan.TargetPath)
+            {
+                TitleName = old.TitleName,
+                TitleID = old.TitleID,
+                Version = old.Version,
+                Icon = old.Icon,
+                Naming = old.Naming,
+                FileType = old.FileType,
+                TypeState = old.TypeState
+            };
+
+            return;
+        }
+    }
+}

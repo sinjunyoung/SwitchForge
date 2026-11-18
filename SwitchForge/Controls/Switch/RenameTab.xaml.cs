@@ -1,0 +1,103 @@
+﻿using Common.Services;
+using Common.Localization;
+using Microsoft.Win32;
+using SwitchForge.Core;
+using SwitchForge.Core.Models.Switch;
+using SwitchForge.ViewModels.Switch;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+
+namespace SwitchForge.Controls.Switch;
+
+public partial class RenameTab : UserControl
+{
+    private RenameMainViewModel ViewModel => (RenameMainViewModel)DataContext;
+
+    private readonly ListViewColumnSorter _sorter = new();
+
+    public RenameTab() => InitializeComponent();
+
+    private void LvFiles_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void LvFiles_Drop(object sender, DragEventArgs e)
+    {
+        if (ViewModel == null)
+            return;
+
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths)
+            return;
+
+        await ViewModel.AddPathsAsync(Utils.ExpandPaths(paths));
+    }
+
+    private void LvFiles_KeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete)
+            return;
+
+        ViewModel?.RemoveItems([.. lvFiles.SelectedItems.Cast<RenameFileItem>()]);
+    }
+
+    private void GridViewColumnHeader_Click(object sender, RoutedEventArgs e) => _sorter.HandleHeaderClick(e, lvFiles);
+
+    private async void BtnAddFiles_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null)
+            return;
+
+        var dialog = new OpenFileDialog
+        {
+            Title = Loc.S.DialogSelectFileToRename,
+            Multiselect = true,
+            Filter = $"{Loc.S.FilterFilesOfType("Switch")} (*.nsp;*.xci;*.nsz;*.xcz)|*.nsp;*.xci;*.nsz;*.xcz|{Loc.S.FilterAllFiles}|*.*"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        await ViewModel.AddPathsAsync(dialog.FileNames);
+    }
+
+    private async void BtnAddFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null)
+            return;
+
+        var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
+        {
+            Description = Loc.S.DialogSelectFolderToAdd,
+            UseDescriptionForTitle = true
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        await ViewModel.AddPathsAsync(Utils.ExpandPaths([dialog.SelectedPath]));
+    }
+
+    private void BtnRemoveFile_Click(object sender, RoutedEventArgs e) => ViewModel?.RemoveItems([.. lvFiles.SelectedItems.Cast<RenameFileItem>()]);
+
+    private void BtnRemoveAllFiles_Click(object sender, RoutedEventArgs e) => ViewModel?.ClearItems();
+
+    private void LvFiles_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (lvFiles.SelectedItems.Count == 0)
+            e.Handled = true;
+    }
+
+    private void MenuItem_OpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = lvFiles.SelectedItems.Cast<RenameFileItem>().FirstOrDefault();
+
+        if (selected == null)
+            return;
+
+        Path.GetDirectoryName(selected.FilePath)?.OpenFolder();
+    }
+}

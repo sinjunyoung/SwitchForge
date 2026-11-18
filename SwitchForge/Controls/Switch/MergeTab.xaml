@@ -1,0 +1,112 @@
+﻿<UserControl x:Class="SwitchForge.Controls.Switch.MergeTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:l="clr-namespace:Common.Localization;assembly=Common"  
+             xmlns:core="clr-namespace:NSW.Core.UI;assembly=NSW"
+             xmlns:local="clr-namespace:SwitchForge.Controls.Switch"
+             xmlns:models="clr-namespace:SwitchForge.Core.Models.Switch;assembly=SwitchForge.Core"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <local:GroupedSwitchListControl x:Name="fileMgr" Grid.Row="0" Margin="5,0,5,5" IsEnabled="{Binding IsIdle}"/>
+
+        <Grid Grid.Row="1" Margin="0,0,0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" IsEnabled="{Binding IsIdle}">
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="10,0">
+                        <TextBlock Text="{Binding Path=Current.LabelMergeMode, Source={x:Static l:Loc.Instance}}" Foreground="White" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <RadioButton Content="{Binding Path=Current.RadioMergeGroupByTitleId, Source={x:Static l:Loc.Instance}}" GroupName="MergeMode" IsChecked="{Binding MergeMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static models:MergeMode.ByTitleId}}" 
+                                     Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="0,0,16,0" ToolTip="{Binding Path=Current.ToolTipMergeGroupByTitleId, Source={x:Static l:Loc.Instance}}"/>
+                        <RadioButton Content="{Binding Path=Current.RadioMergeAll, Source={x:Static l:Loc.Instance}}" GroupName="MergeMode" IsChecked="{Binding MergeMode, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static models:MergeMode.AllInOne}}" 
+                                     Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="0,0,16,0" ToolTip="{Binding Path=Current.ToolTipMergeAll, Source={x:Static l:Loc.Instance}}"/>
+
+                        <Border Width="1" Height="18" Background="#444" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="{Binding Path=Current.LabelOutputFormat, Source={x:Static l:Loc.Instance}}" Foreground="White" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <RadioButton Content="NSP" GroupName="MergeFormat" IsChecked="{Binding OutputFormat, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static models:OutputFormat.NSP}}" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <RadioButton Content="NSZ" GroupName="MergeFormat" IsChecked="{Binding OutputFormat, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static models:OutputFormat.NSZ}}" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <RadioButton Content="XCI" GroupName="MergeFormat" IsChecked="{Binding OutputFormat, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static models:OutputFormat.XCI}}" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <RadioButton Content="XCZ" GroupName="MergeFormat" IsChecked="{Binding OutputFormat, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter={x:Static models:OutputFormat.XCZ}}" Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Column="1" Margin="5,0,5,0" Orientation="Horizontal" VerticalAlignment="Center" IsEnabled="{Binding IsIdle}"/>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,0,0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" x:Name="btnWorkSpace" Background="Transparent" BorderThickness="0" Command="{Binding OpenWorkSpaceCommand}" IsEnabled="{Binding IsIdle}" Margin="5,0,0,0" Padding="0" Style="{StaticResource GrayButton}">
+                <Button.ToolTip>
+                    <ToolTip Content="{Binding Path=Current.ToolTipOpenWorkSpace, Source={x:Static l:Loc.Instance}}"/>
+                </Button.ToolTip>
+            </Button>
+            <Border Grid.Column="2" Background="#12FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="1" CornerRadius="6">
+                <Grid>
+                    <TextBox Background="Transparent" BorderThickness="0" FontSize="11" Foreground="#DCDCDC" Height="30" IsEnabled="{Binding IsIdle}" Text="{Binding OutputPath, Mode=TwoWay}" VerticalContentAlignment="Center" x:Name="txtOutput" AllowDrop="True" 
+                         PreviewDragOver="TxtOutputPath_PreviewDragOver" Drop="TxtOutputPath_Drop"/>
+                    <TextBlock Text="{Binding Path=Current.HintDragOrSelectOutputFolder, Source={x:Static l:Loc.Instance}}" Visibility="{Binding OutputHintVisibility}" Foreground="#50FFFFFF" FontSize="11" VerticalAlignment="Center" IsHitTestVisible="False" Margin="5,0,0,0"/>
+                </Grid>
+            </Border>
+            <Button Grid.Column="3" x:Name="btnBrowseOutput" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Center" IsEnabled="{Binding IsIdle}" Margin="5,0,5,0" Padding="0" Style="{StaticResource GrayButton}" VerticalContentAlignment="Center"
+                    Click="BtnBrowseOutput_Click">
+                <Button.ToolTip>
+                    <ToolTip Content="{Binding Path=Current.ToolTipBrowseOutput, Source={x:Static l:Loc.Instance}}"/>
+                </Button.ToolTip>
+                <Image RenderOptions.BitmapScalingMode="HighQuality" Source="/SwitchForge.Core;component/Assets/Images/AddFolder.png" Stretch="Uniform"/>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="5,0,0,5">
+            <core:IconButton x:Name="btnMergeStart" Margin="0,0,5,0" DefaultText="{Binding Path=Current.ButtonStart, Source={x:Static l:Loc.Instance}}" DefaultIcon="/Assets/Images/Run.png" CancelText="{Binding Path=Current.ButtonCancel, Source={x:Static l:Loc.Instance}}" CancelIcon="/Assets/Images/Cancel.png" 
+                             IsRunning="{Binding IsLocked, Mode=OneWay}" Click="BtnMergeStart_Click"/>
+        </Grid>
+        <Border Grid.Row="4" Background="#12FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="0,1,0,0" CornerRadius="8" Margin="5,0,5,5" Padding="8,0">
+            <Grid x:Name="progressArea" Height="28">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="140"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" x:Name="progressLabel" Text="{Binding ProgressLabel}" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="1" x:Name="progressPercent" Margin="0,0,10,0" Text="{Binding ProgressPercent}" Foreground="#4CAF50" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" x:Name="progressSpeed" Margin="0,0,10,0" Text="{Binding ProgressSpeed}" Foreground="Gray" FontSize="11" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="3" x:Name="progressTime" Margin="0,0,10,0" Text="{Binding ProgressTime}" Foreground="#4CAF50" FontSize="11" VerticalAlignment="Center"/>
+                <Grid Grid.Column="4" Height="10" VerticalAlignment="Center">
+                    <Border Background="#25FFFFFF" CornerRadius="5"/>
+                    <Border x:Name="barTrack" CornerRadius="5" ClipToBounds="True">
+                        <Border Background="#4CAF50" CornerRadius="5" HorizontalAlignment="Left">
+                            <Border.Width>
+                                <MultiBinding Converter="{StaticResource ProgressToWidthConverter}">
+                                    <Binding Path="ActualWidth" ElementName="barTrack"/>
+                                    <Binding Path="ProgressPct"/>
+                                </MultiBinding>
+                            </Border.Width>
+                        </Border>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

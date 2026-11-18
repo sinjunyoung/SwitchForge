@@ -1,0 +1,89 @@
+﻿<UserControl x:Class="SwitchForge.Controls.Switch.MainTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:Common.Localization;assembly=Common"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:SwitchForge.Controls.Switch"
+             xmlns:controls="clr-namespace:SwitchForge.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="1000">
+    <Grid>
+        <TabControl x:Name="MasterTabControl" SelectedIndex="{Binding SubTabIndex, Mode=TwoWay}" Background="Transparent" BorderThickness="0">
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Package.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabRepack, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:RepackTab DataContext="{Binding RepackVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Merge.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabMerge, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:MergeTab DataContext="{Binding MergeVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Split.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabSplit, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:SplitTab DataContext="{Binding SplitVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Compressed.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabLz4Compression, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:Lz4MergeTab DataContext="{Binding Lz4MergeVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Convert.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabFormatConvert, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:ConverterTab DataContext="{Binding ConverterVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Saturn.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabSaturnNspConvert, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:ConvertSaturnTab DataContext="{Binding ConvertSaturnVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Keygen.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabIgnoreVersion, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:KeygenTab DataContext="{Binding KeygenVM}"/>
+            </TabItem>
+            <TabItem IsEnabled="{Binding CanUseTools}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/Rename.png" Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Path=Current.TabRename, Source={x:Static l:Loc.Instance}}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <local:RenameTab DataContext="{Binding RenameVM}"/>
+            </TabItem>
+        </TabControl>
+
+        <controls:KeyMissingOverlay DataContext="{Binding KeyOverlay}"/>
+    </Grid>
+</UserControl>

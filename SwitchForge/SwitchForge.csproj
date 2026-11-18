@@ -1,0 +1,183 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <VersionPrefix>2.0.0.5</VersionPrefix>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>False</UseWindowsForms>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <AssemblyName>SwitchForge</AssemblyName>
+    <RootNamespace>SwitchForge</RootNamespace>
+    <TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
+  </PropertyGroup>
+  <PropertyGroup>
+	<GenerateDocumentationFile>false</GenerateDocumentationFile> 
+  </PropertyGroup>
+  <PropertyGroup>
+	<Authors>YameSoft</Authors>
+	<Copyright>Copyright © 2026 YameSoft</Copyright>
+	<PackageLicenseExpression>GPL-2.0</PackageLicenseExpression>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>NETSDK1206</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>NETSDK1206</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Assets\Images\Arcade.png" />
+    <None Remove="Assets\Images\ArcadeCartridge.png" />
+    <None Remove="Assets\Images\Blu-ray.png" />
+    <None Remove="Assets\Images\CancelLanguage.png" />
+    <None Remove="Assets\Images\Categories.png" />
+    <None Remove="Assets\Images\CD.png" />
+    <None Remove="Assets\Images\Certs.png" />
+    <None Remove="Assets\Images\Check.png" />
+    <None Remove="Assets\Images\Comment.png" />
+    <None Remove="Assets\Images\Compressed.png" />
+    <None Remove="Assets\Images\Copy.png" />
+    <None Remove="Assets\Images\CUE.png" />
+    <None Remove="Assets\Images\Diskette.png" />
+    <None Remove="Assets\Images\DVD.png" />
+    <None Remove="Assets\Images\FontSize.png" />
+    <None Remove="Assets\Images\Hash.png" />
+    <None Remove="Assets\Images\Help.png" />
+    <None Remove="Assets\Images\Image.png" />
+    <None Remove="Assets\Images\Insert.png" />
+    <None Remove="Assets\Images\Keygen.png" />
+    <None Remove="Assets\Images\Language.png" />
+    <None Remove="Assets\Images\Lock.png" />
+    <None Remove="Assets\Images\LowerA.png" />
+    <None Remove="Assets\Images\movable.sed.png" />
+    <None Remove="Assets\Images\Neural.png" />
+    <None Remove="Assets\Images\NoPatch.png" />
+    <None Remove="Assets\Images\OpenFolder.png" />
+    <None Remove="Assets\Images\PC98.png" />
+    <None Remove="Assets\Images\Pin.png" />
+    <None Remove="Assets\Images\PS3.png" />
+    <None Remove="Assets\Images\PSP.png" />
+    <None Remove="Assets\Images\Recover.png" />
+    <None Remove="Assets\Images\Region.png" />
+    <None Remove="Assets\Images\Rename.png" />
+    <None Remove="Assets\Images\Repack.png" />
+    <None Remove="Assets\Images\Resource.png" />
+    <None Remove="Assets\Images\Saturn.png" />
+    <None Remove="Assets\Images\Search.png" />
+    <None Remove="Assets\Images\Shield.png" />
+    <None Remove="Assets\Images\Sound.png" />
+    <None Remove="Assets\Images\Split.png" />
+    <None Remove="Assets\Images\Tistory.png" />
+    <None Remove="Assets\Images\Unpack.png" />
+    <None Remove="Assets\Images\UnRepack.png" />
+    <None Remove="Assets\Images\UpperA.png" />
+    <None Remove="Assets\Images\Version.png" />
+    <None Remove="Assets\Images\Vita.png" />
+    <None Remove="Assets\Images\VitaCartridge.png" />
+    <None Remove="Assets\Images\VitaGray.png" />
+    <None Remove="Assets\Images\Wii.png" />
+    <None Remove="Assets\Images\WiiU.png" />
+    <None Remove="Assets\Images\WorkSpace.png" />
+    <None Remove="Assets\Images\zRIF.png" />
+    <None Remove="Assets\Sounds\cancel.mp3" />
+    <None Remove="Assets\Sounds\complete.mp3" />
+    <None Remove="Assets\Sounds\error.mp3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Images\CancelLanguage.png" />
+    <Resource Include="Assets\Images\Compressed.png" />
+    <Resource Include="Assets\Images\Language.png" />
+    <Resource Include="Assets\Images\Rename.png" />
+    <Resource Include="Assets\Images\UnRepack.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Images\3DS.png" />
+    <Resource Include="Assets\Images\Arcade.png" />
+    <Resource Include="Assets\Images\Cartridge.png" />
+    <Resource Include="Assets\Images\CD.png" />
+    <Resource Include="Assets\Images\Certs.png" />
+    <Resource Include="Assets\Images\Check.png" />
+    <Resource Include="Assets\Images\Convert.png" />
+    <Resource Include="Assets\Images\Copy.png" />
+    <Resource Include="Assets\Images\CUE.png" />
+    <Resource Include="Assets\Images\FontSize.png" />
+    <Resource Include="Assets\Images\Hash.png" />
+    <Resource Include="Assets\Images\HDD.png" />
+    <Resource Include="Assets\Images\Help.png" />
+    <Resource Include="Assets\Images\Image.png" />
+    <Resource Include="Assets\Images\Insert.png" />
+    <Resource Include="Assets\Images\Keygen.png" />
+    <Resource Include="Assets\Images\NoPatch.png" />
+    <Resource Include="Assets\Images\OpenFolder.png" />
+    <Resource Include="Assets\Images\PC98.png" />
+    <Resource Include="Assets\Images\Pin.png" />
+    <Resource Include="Assets\Images\PSP.png" />
+    <Resource Include="Assets\Images\Recover.png" />
+    <Resource Include="Assets\Images\Repack.png" />
+    <Resource Include="Assets\Images\Resource.png" />
+    <Resource Include="Assets\Images\Saturn.png" />
+    <Resource Include="Assets\Images\SD.png" />
+    <Resource Include="Assets\Images\Search.png" />
+    <Resource Include="Assets\Images\Sound.png" />
+    <Resource Include="Assets\Images\Split.png" />
+    <Resource Include="Assets\Images\Tistory.png" />
+    <Resource Include="Assets\Images\Unpack.png" />
+    <Resource Include="Assets\Images\Vita.png" />
+    <Resource Include="Assets\Images\Wii.png" />
+    <Resource Include="Assets\Images\WiiU.png" />
+    <Resource Include="Assets\Images\WorkSpace.png" />
+    <Resource Include="Assets\Images\DLC.png" />
+    <Resource Include="Assets\Images\Install.png" />
+    <Resource Include="Assets\Images\Installer.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.6.0" />
+    <PackageReference Include="Markdig.Wpf" Version="0.5.0.1" />
+    <PackageReference Include="NAudio" Version="3.3.0" />
+    <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
+    <PackageReference Include="System.IO.Hashing" Version="11.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="App.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NSW\NSW.csproj" />
+    <ProjectReference Include="..\Patch\Patch.csproj" />
+    <ProjectReference Include="..\SwitchForge.Core\SwitchForge.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Images\Azahar.png" />
+    <Resource Include="Assets\Images\BlockMode.png" />
+    <Resource Include="Assets\Images\Cancel.png" />
+    <Resource Include="Assets\Images\Checked.png" />
+    <Resource Include="Assets\Images\Clear.png" />
+    <Resource Include="Assets\Images\Delete.png" />
+    <Resource Include="Assets\Images\Dolphin.png" />
+    <Resource Include="Assets\Images\Extension.png" />
+    <Resource Include="Assets\Images\FileSizeBytes.png" />
+    <Resource Include="Assets\Images\Info.png" />
+    <Resource Include="Assets\Images\Level.png" />
+    <Resource Include="Assets\Images\List.png" />
+    <Resource Include="Assets\Images\Loading.png" />
+    <Resource Include="Assets\Images\Merge.png" />
+    <Resource Include="Assets\Images\Package.png" />
+    <Resource Include="Assets\Images\Patch.png" />
+    <Resource Include="Assets\Images\Progress.png" />
+    <Resource Include="Assets\Images\PS1.png" />
+    <Resource Include="Assets\Images\Run.png" />
+    <Resource Include="Assets\Images\Seed.png" />
+    <Resource Include="Assets\Images\size.png" />
+    <Resource Include="Assets\Images\Switch.png" />
+    <Resource Include="Assets\Images\Unchecked.png" />
+    <Resource Include="Assets\Images\Usb.png" />
+    <Resource Include="Assets\Images\ZipFolder.png" />
+    <Resource Include="Assets\Images\zRIF.png" />
+    <Resource Include="Assets\Sounds\cancel.mp3" />
+    <Resource Include="Assets\Sounds\complete.mp3" />
+    <Resource Include="Assets\Sounds\error.mp3" />
+  </ItemGroup>
+</Project>

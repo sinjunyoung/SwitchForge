@@ -1,0 +1,11 @@
+<UserControl x:Class="SwitchForge.Controls.Settings.KeyFileSettingsTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SwitchForge.Controls">
+    <UserControl.Resources>
+        <DataTemplate x:Key="KeyFileRowTemplate">
+            <controls:KeyFileRow Margin="0,0,0,10"/>
+        </DataTemplate>
+    </UserControl.Resources>
+    <ItemsControl ItemsSource="{Binding SwitchItems}" ItemTemplate="{StaticResource KeyFileRowTemplate}" Margin="5,5,5,5"/>
+</UserControl>

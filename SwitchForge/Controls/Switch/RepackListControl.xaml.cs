@@ -1,0 +1,257 @@
+﻿using Common.Models;
+using Common.Localization;
+using Common.Services;
+using Microsoft.Win32;
+using NSW.Core;
+using Patch.Core.Services;
+using SwitchForge.Core;
+using SwitchForge.Core.Models.Switch;
+using SwitchForge.Core.Services;
+using SwitchForge.Core.Services.Switch;
+using SwitchForge.Core.ViewModels.Switch;
+using SwitchForge.Views;
+using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using PatchSource = SwitchForge.Core.Services.Switch.PatchSource;
+
+namespace SwitchForge.Controls.Switch;
+
+public partial class RepackListControl : SwitchListControlBase
+{
+    private readonly RepackRowViewModel _viewModel;
+
+    public ObservableCollection<GameFile> GameFiles => _viewModel.GameFiles;
+
+    public event Action? FileListChanged
+    {
+        add => _viewModel.FileListChanged += value;
+        remove => _viewModel.FileListChanged -= value;
+    }
+
+    public RepackListControl()
+    {
+        InitializeComponent();
+
+        _viewModel = new RepackRowViewModel(SwitchFileTypes.Extensions);
+        DataContext = _viewModel;
+        lvFiles.ItemsSource = _viewModel.GameFiles;
+        _viewModel.FileListChanged += UpdateDropHint;
+
+        UpdateDropHint();
+    }
+
+    public static bool KeyExists() => KeySetProvider.Instance.KeySet != null;
+
+    public void RecalcKeyMissingFiles(Action onCompleted) => _viewModel.RecalcKeyMissingFiles(onCompleted);
+
+    public Task LoadUnpackedAsync(string unpackedDir, CancellationToken ct = default) => _viewModel.LoadUnpackedAsync(unpackedDir, ct);
+
+    private void UpdateDropHint() => dropHint.Visibility = _viewModel.GameFiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    protected override ListView? FileListView => lvFiles;
+
+    protected override string? SelectedFilePath => (lvFiles.SelectedItem as GameFile)?.FilePath;
+
+    protected override Task AddPathsAsync(IEnumerable<string> paths) => _viewModel.AddFilesAsync(paths);
+
+    protected override void RemoveSelectedItems()
+    {
+        foreach (var item in GetSelectedItems<GameFile>())
+            _viewModel.RemoveFile(item);
+    }
+
+    protected override void RemoveAllItems() => _viewModel.RemoveAllFiles();
+
+    private void BtnBulkPatch_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { ContextMenu: not null } fe)
+            return;
+
+        fe.ContextMenu.PlacementTarget = fe;
+        fe.ContextMenu.IsOpen = true;
+    }
+
+    private void BulkPatchMenu_FromFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var targets = GetBulkPatchTargets();
+
+        if (targets == null)
+            return;
+
+        var dlg = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = Loc.S.DialogSelectKoreanPatchRootFolder,
+            UseDescriptionForTitle = true
+        };
+
+        if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+            return;
+
+        var report = BulkPatchMatcher.MatchFromFolder(targets, dlg.SelectedPath, _viewModel.GetExpectedIds);
+
+        _viewModel.ProcessBulkPatchResult(report);
+    }
+
+    private async void BulkPatchMenu_FromArchive_Click(object sender, RoutedEventArgs e)
+    {
+        var targets = GetBulkPatchTargets();
+
+        if (targets == null)
+            return;
+
+        var dlg = new OpenFileDialog
+        {
+            Title = Loc.S.DialogSelectKoreanPatchRootArchive,
+            Filter = $"{Loc.S.FilterArchiveFiles} (*.zip;*.7z)|*.zip;*.7z"
+        };
+
+        if (dlg.ShowDialog() != true)
+            return;
+
+        try
+        {
+            var opened = await PasswordPromptWindow.OpenWithPasswordPromptAsync(dlg.FileName, Window.GetWindow(this));
+
+            if (opened == null)
+                return;
+
+            using var archive = opened.Value.Archive;
+            var report = BulkPatchMatcher.MatchFromArchive(targets, archive, dlg.FileName, opened.Value.Password, _viewModel.GetExpectedIds);
+
+            _viewModel.ProcessBulkPatchResult(report);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.AppendLog(Loc.S.LogArchiveOpenError(ex.Message), LogLevel.Error);
+            await SoundPlayer.PlayErrorAsync();
+        }
+    }
+
+    private List<GameFile>? GetBulkPatchTargets()
+    {
+        var targets = _viewModel.GameFiles.Where(f => !string.IsNullOrEmpty(f.TitleID)).ToList();
+
+        if (targets.Count == 0)
+        {
+            _viewModel.AppendLog(Loc.S.LogNoTitleInfoItems, LogLevel.Info);
+            return null;
+        }
+
+        return targets;
+    }
+
+    private void MenuItem_RemovePatch_Click(object sender, RoutedEventArgs e)
+    {
+        if (lvFiles.SelectedItem is GameFile file)
+            _viewModel.ClearPatch(file);
+    }
+
+    private void PatchDropTarget_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { ContextMenu: not null } fe)
+            return;
+
+        fe.ContextMenu.PlacementTarget = fe;
+        fe.ContextMenu.IsOpen = true;
+    }
+
+    private void PatchMenu_SelectFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: GameFile file })
+            return;
+
+        var dlg = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = Loc.S.DialogSelectKoreanPatchFolderFor(file.TitleName),
+            UseDescriptionForTitle = true
+        };
+
+        if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            _viewModel.TryAssignPatch(file, PatchSource.FromFolder(dlg.SelectedPath), null);
+    }
+
+    private async void PatchMenu_SelectArchive_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: GameFile file })
+            return;
+
+        var dlg = new OpenFileDialog
+        {
+            Title = Loc.S.DialogSelectKoreanPatchArchiveFor(file.TitleName),
+            Filter = $"{Loc.S.FilterArchiveFiles} (*.zip;*.7z)|*.zip;*.7z"
+        };
+
+        if (dlg.ShowDialog() != true)
+            return;
+
+        await TryAssignArchivePatchAsync(file, dlg.FileName);
+    }
+
+    private void PatchDropTarget_DragEnter(object sender, DragEventArgs e)
+    {
+        e.Effects = PatchDropValidator.IsValidPatchDrop(e.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void PatchDropTarget_DragLeave(object sender, DragEventArgs e) => e.Handled = true;
+
+    private async void PatchDropTarget_Drop(object sender, DragEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: GameFile file })
+            return;
+
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0)
+            return;
+
+        string path = paths[0];
+
+        if (!PatchDropValidator.IsValidPatchPath(path))
+            return;
+
+        if (ArchivePatchSourceFactory.IsArchivePath(path))
+            await TryAssignArchivePatchAsync(file, path);
+        else
+            _viewModel.TryAssignPatch(file, PatchSource.FromFolder(path), null);
+    }
+
+    private async Task<bool> TryAssignArchivePatchAsync(GameFile file, string archivePath)
+    {
+        try
+        {
+            var opened = await PasswordPromptWindow.OpenWithPasswordPromptAsync(archivePath, Window.GetWindow(this));
+
+            if (opened == null)
+                return false;
+
+            var source = PatchSource.FromArchive(archivePath, opened.Value.Archive);
+
+            opened.Value.Archive.Dispose();
+
+            return _viewModel.TryAssignPatch(file, source, opened.Value.Password);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.AppendLog(Loc.S.LogArchiveOpenError(ex.Message), LogLevel.Error);
+            await SoundPlayer.PlayErrorAsync();
+            return false;
+        }
+    }
+
+    private void HeaderCheckBox_Checked(object sender, RoutedEventArgs e)
+    {
+        SetAllItemsChecked(true);
+    }
+
+    private void HeaderCheckBox_Unchecked(object sender, RoutedEventArgs e)
+    {
+        SetAllItemsChecked(false);
+    }
+
+    private void SetAllItemsChecked(bool isChecked)
+    {
+        foreach (var item in GameFiles)
+            item.IsLz4 = isChecked;
+    }
+}

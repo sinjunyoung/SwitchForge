@@ -1,0 +1,65 @@
+﻿using System.IO;
+using System.Text.Json.Serialization;
+
+namespace NSW.Core.Models;
+
+public class UnpackResult
+{
+    public Dictionary<byte, string> ExefsDirs { get; set; } = [];
+
+    public Dictionary<byte, string> RomfsDirs { get; set; } = [];
+
+    public Dictionary<byte, string> LogoDirs { get; set; } = [];
+
+    public Dictionary<byte, string> ControlDirs { get; set; } = [];
+
+    public Dictionary<byte, string> HtmlDocDirs { get; set; } = [];
+
+    public Dictionary<byte, string> LegalDirs { get; set; } = [];
+
+    public List<DlcUnpackInfo> Dlcs { get; set; } = [];
+
+    public HashSet<byte> CompressedRomfs { get; set; } = [];
+
+    [JsonIgnore]
+    public Dictionary<byte, Func<Stream>> RomfsOpeners { get; } = [];
+
+    [JsonIgnore]
+    public List<IDisposable> Resources { get; } = [];
+
+    [JsonIgnore]
+    public int DlcCount => Dlcs.Count;
+
+    public ulong TitleId { get; set; }
+
+    public uint BaseSdkVersion { get; set; }
+
+    public byte BaseKeyGeneration { get; set; }
+
+    public string KrTitle { get; set; } = string.Empty;
+
+    public string EnTitle { get; set; } = string.Empty;
+
+    public uint GameVersion { get; set; }
+
+    public string DisplayVersion { get; set; } = string.Empty;
+
+    public bool HasUpdate { get; set; }
+
+    [JsonIgnore]
+    public string TitleIdStr => $"{TitleId:x16}";
+
+    [JsonIgnore]
+    public Dictionary<byte, Services.VirtualRomfs> VirtualRomfsPrograms { get; } = [];
+
+    [JsonIgnore]
+    public Dictionary<byte, VirtualProgramParts> VirtualParts { get; } = [];
+
+    public void ReleaseResources()
+    {
+        for (int i = Resources.Count - 1; i >= 0; i--)
+            Resources[i].Dispose();
+
+        Resources.Clear();
+    }
+}
