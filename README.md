@@ -10,13 +10,91 @@ SwitchForge is a Windows desktop tool for unpacking, repacking, merging, convert
 
 ## Features
 
-* **Repack** — NSP/XCI unpack & repack with file replacement, patch application (IPS, IPS32, BPS, UPS, xdelta) and per-file Lz4 romfs compression
-* **Merge** — base + update + DLC merge
-* **Split** — base, update, DLC split
-* **Format conversion** — NSP / NSZ / XCI / XCZ conversion and compression
-* **Saturn conversion** — Sega Saturn ROM NSP conversion
-* **Rename** — batch file renaming with a custom format
+SwitchForge is organized into tabs, one per task. Every tool accepts **NSP, NSZ, XCI and XCZ** and needs `prod.keys` (see Requirements).
 
+### Repack
+
+Unpacks titles and rebuilds them as a new package, with support for patches, custom metadata and multiple titles at once.
+
+* Drag and drop base games, updates and DLC into the title list. One base and one update are kept per title (the one added last replaces the earlier one), while DLC keeps accumulating. A file that bundles a base game and DLC is split into separate rows automatically.
+* **Patches** can be assigned per title, or in bulk by Title ID. Supported patch types:
+  * LayeredFS patches (`romfs` / `exefs` folders) that replace original files
+  * xdelta patches, matched to the target file in `romfs` by file name
+  * IPS / IPS32 patches in `exefs_patches`, matched by NSO module ID (the NSO is decompressed, patched and recompressed automatically)
+* A patch can be a folder or a zip / 7z archive, including password-protected archives. The base game and update share the same patch automatically.
+* **Per-title settings**: enabled languages (or force a single language), cover image, title name, publisher, Title ID, and multi-ROM index for packages that contain several games.
+* **Lz4** column: choose per title whether romfs is Lz4-compressed on repack.
+* **Unpack**, **Repack** and **Unpack + Repack (Full)** buttons with a work folder. Repack can be run on its own from a previously unpacked folder.
+
+### Merge
+
+Merges base game, update and DLC into a single file.
+
+* **Group by Title ID** merges each game into its own file, so files from many games can be added at once.
+* **All** merges everything in the list into one file.
+* Outdated update content is dropped, so only the latest update remains in the result.
+* Works even when only an update or DLC is available.
+* The output is NSP, NSZ, XCI or XCZ depending on the selected format and compression settings.
+
+### Split
+
+The reverse of merge: splits a combined file into separate base game, update and DLC files.
+
+* Expand a combined file in the list and choose which titles to split out.
+* Choose the output format (NSP, NSZ, XCI, XCZ).
+
+### Lz4 compression
+
+Merges a base game and update (and DLC) into one file while compressing romfs with Lz4.
+
+* Shows the estimated and the actual compression ratio for each title.
+* Files that are already Lz4-compressed are skipped.
+* Output as NSP or NSZ.
+
+### Format conversion
+
+Converts files between NSP, NSZ, XCI and XCZ. Every format can be converted into each of the other three, including compressed to compressed (for example NSZ to XCZ) in one step.
+
+| Source | Available targets |
+| ------ | ----------------- |
+| NSP | XCI, NSZ, XCZ |
+| XCI | NSP, NSZ, XCZ |
+| NSZ | NSP, XCI, XCZ |
+| XCZ | NSP, XCI, NSZ |
+
+* The target format is chosen per file.
+* Pressing Start again retries only failed or cancelled items.
+
+### Saturn NSP conversion
+
+Creates a Switch NSP from a Sega Saturn disc image by injecting it into a Saturn emulator forwarder NSP.
+
+* Accepts CUE/BIN or CHD. CHD images are streamed, so no full extraction is needed.
+* Game ID, version and name are read from the disc header, and a cover image is downloaded automatically by game ID. Name, publisher and cover can be edited.
+* Options for widescreen and sound volume.
+
+### Ignore version
+
+Makes titles that require a newer system version installable, for example with DBI on a console that has not been updated.
+
+* Re-encrypts every NCA with keygen 0 and removes the ticket files.
+* The file format stays the same (NSP stays NSP, XCI stays XCI) and the result is written next to the source file.
+* It cannot add features the game actually needs from a newer SDK.
+
+### Rename
+
+Renames files in bulk using a format string.
+
+* Build the format with draggable tokens: `Name`, `KTitleName`, `TitleName`, `TitleID`, `Tag`, `DisplayVersion` and `Version`.
+* The list shows the current and the new file name for every file, with a status such as will rename, no change, duplicate name, file exists or name too long.
+
+### Settings
+
+* **General** — UI language, always on top, update check on startup, sound effects.
+* **Compression** — compression level (3 to 18) and mode (block or blockless) for NSZ / XCZ.
+* **Key files** — path to `prod.keys`.
+
+The interface is available in Korean, English, Japanese, Simplified Chinese, Traditional Chinese, French, German, Russian and Spanish.
 
 ## Requirements
 
